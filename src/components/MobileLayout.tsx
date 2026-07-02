@@ -79,7 +79,7 @@ export default function MobileLayout() {
                 <div className="p-5">
                     <div className="rounded-2xl bg-white/10 border border-white/10 p-4">
                         <p className="text-xs font-bold text-accent">DSPS Care</p>
-                        <p className="text-[10px] leading-relaxed text-white/60 mt-1">ดูแลนักเรียนทุกคนอย่างใกล้ชิด</p>
+                        <p className="text-[10px] leading-relaxed text-white/60 mt-1">ที่แห่งนี้ดูแลเหมือนครอบครัว</p>
                     </div>
                 </div>
             </aside>
