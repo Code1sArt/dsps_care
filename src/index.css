@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ปรับแต่งเพื่อให้ฟีลลิ่งเหมือนใช้แอปในมือถือจริงๆ (ปิดการคลุมดำข้อความ) */
+body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  background-color: #f3f4f6;
+  /* สีเทาอ่อน (bg-gray-100) */
+}
