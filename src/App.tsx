@@ -8,9 +8,11 @@ import ProfilePage from './pages/ProfilePage';
 import Home from './pages/HomePage';
 import AttendancePage from './pages/AttendancePage';
 import BehaviorPage from './pages/BehaviorPage';
+import DevLoginPage from './pages/DevLoginPage';
 import { api } from './lib/api';
 
 const liffId = import.meta.env.VITE_LIFF_ID;
+const isDevelopment = import.meta.env.DEV;
 
 
 export default function App() {
@@ -22,6 +24,15 @@ export default function App() {
 
   useEffect(() => {
     const initLiff = async () => {
+      if (isDevelopment) {
+        const token = localStorage.getItem('access_token');
+        const user = localStorage.getItem('user_data');
+
+        setIsAuthenticated(Boolean(token && user));
+        setIsReady(true);
+        return;
+      }
+
       try {
         if (!liffId) throw new Error('Missing VITE_LIFF_ID environment variable');
         await liff.init({ liffId });
@@ -62,6 +73,21 @@ export default function App() {
 
   if (liffError) return <div className="p-10 text-center text-red-500 font-bold">Error: {liffError}</div>;
   if (!isReady) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+
+  if (isDevelopment && !isAuthenticated) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <DevLoginPage
+          onLoginSuccess={(token, user) => {
+            localStorage.setItem('access_token', token);
+            localStorage.setItem('user_data', JSON.stringify(user));
+            setIsAuthenticated(true);
+          }}
+        />
+      </>
+    );
+  }
 
   // ถ้าเช็คแล้วว่า "ต้องผูกบัญชี" ให้แสดงแค่หน้า BindingPage เดี่ยวๆ (ไม่มีเมนูด้านล่าง)
   if (requiresBinding && !isAuthenticated) {
