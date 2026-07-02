@@ -124,7 +124,7 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen bg-gray-50 pb-24">
             {/* Cover Profile */}
-            <div className="h-32 bg-gradient-to-r from-primary-dark to-primary relative">
+            <div className="h-32 lg:h-44 bg-gradient-to-r from-primary-dark to-primary relative">
                 <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
                     <div className="relative">
                         {lineAvatar ? (
@@ -142,7 +142,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Profile Info */}
-            <div className="pt-16 px-6 pb-6 text-center">
+            <div className="pt-16 px-6 pb-6 text-center lg:pt-14">
                 <h2 className="text-2xl font-bold text-gray-800">
                     {userData?.firstName} {userData?.lastName}
                 </h2>
@@ -153,10 +153,10 @@ export default function ProfilePage() {
             </div>
 
             {/* Actions & Forms */}
-            <div className="px-6 space-y-4">
+            <div className="px-6 space-y-4 lg:max-w-4xl lg:mx-auto lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0">
 
                 {/* Card: ข้อมูลส่วนตัว */}
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm border border-gray-100 lg:col-span-3">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <User size={18} className="text-primary" /> ข้อมูลส่วนตัว
@@ -205,13 +205,13 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Menu Items */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2 lg:self-start">
                     <button
                         onClick={() => setIsPasswordModalOpen(true)}
                         className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-50"
                     >
                         <div className="flex items-center gap-3 text-gray-700">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><KeyRound size={18} /></div>
+                            <div className="p-2 bg-accent-soft text-primary rounded-xl"><KeyRound size={18} /></div>
                             <span className="font-medium text-sm">เปลี่ยนรหัสผ่าน</span>
                         </div>
                     </button>

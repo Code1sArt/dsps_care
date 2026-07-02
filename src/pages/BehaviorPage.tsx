@@ -143,13 +143,13 @@ export default function BehaviorPage() {
             {/* ------------------------------------------------------------- */}
             {userRole === 'TEACHER' && classroomData && (
                 <>
-                    <div className="bg-primary px-6 pt-10 pb-6 rounded-b-[30px] shadow-md sticky top-0 z-10">
-                        <h1 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
+                    <div className="bg-primary px-6 pt-10 pb-6 rounded-b-[30px] shadow-md sticky top-0 z-10 lg:static lg:px-10 lg:pt-9 lg:pb-8 lg:rounded-b-[40px]">
+                        <h1 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-2 mb-4 lg:max-w-6xl lg:mx-auto">
                             <ShieldCheck size={24} /> คะแนนพฤติกรรม
                         </h1>
 
                         {/* Search Bar */}
-                        <div className="relative">
+                        <div className="relative lg:max-w-6xl lg:mx-auto">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input
                                 type="text"
@@ -161,13 +161,13 @@ export default function BehaviorPage() {
                         </div>
                     </div>
 
-                    <div className="px-4 py-6">
+                    <div className="px-4 py-6 lg:max-w-6xl lg:mx-auto lg:px-10">
                         <div className="flex items-center justify-between mb-4 px-2">
                             <h2 className="font-bold text-gray-700">ห้อง {classroomData.className}</h2>
                             <span className="text-xs text-gray-500 font-medium">ทั้งหมด {classroomData.students.length} คน</span>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 lg:space-y-0">
                             {filteredStudents.map((student) => {
                                 const conf = getStatusConfig(student.status);
                                 return (
@@ -219,7 +219,7 @@ export default function BehaviorPage() {
                         <div className="flex min-h-full items-center justify-center p-4 text-center">
                             <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
 
-                                <Dialog.Panel className="w-full max-w-sm transform overflow-hidden rounded-[28px] bg-gray-50 text-left align-middle shadow-2xl transition-all">
+                                <Dialog.Panel className="w-full max-w-sm lg:max-w-lg transform overflow-hidden rounded-[28px] bg-gray-50 text-left align-middle shadow-2xl transition-all">
 
                                     {detailLoading || !studentDetail ? (
                                         <div className="flex h-64 items-center justify-center bg-white"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>

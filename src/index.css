@@ -7,6 +7,25 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  margin: 0;
+  min-width: 320px;
   background-color: #f3f4f6;
-  /* สีเทาอ่อน (bg-gray-100) */
+}
+
+html {
+  background-color: #f3f4f6;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 1024px) {
+  body {
+    background:
+      radial-gradient(circle at 10% 0%, rgba(255, 215, 0, 0.12), transparent 28rem),
+      #f3f4f6;
+  }
 }

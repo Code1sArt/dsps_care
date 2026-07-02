@@ -8,9 +8,13 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#1e3a8a', // สีน้ำเงินเข้ม (เปลี่ยนตามสีโรงเรียนได้ครับ)
-          dark: '#1e40af',
-          light: '#dbeafe',
+          DEFAULT: '#006400',
+          dark: '#004d00',
+          light: '#FFD700',
+        },
+        accent: {
+          DEFAULT: '#FFD700',
+          soft: '#FFF8CC',
         }
       }
     },

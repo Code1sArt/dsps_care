@@ -130,9 +130,9 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
 
             {/* Background Decoration */}
             <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-primary/10 rounded-full blur-3xl fixed"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-72 h-72 bg-blue-400/10 rounded-full blur-3xl fixed"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-72 h-72 bg-accent/20 rounded-full blur-3xl fixed"></div>
 
-            <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-8 z-10 border border-gray-100 my-8">
+            <div className="w-full max-w-sm lg:max-w-md bg-white rounded-3xl shadow-xl p-8 lg:p-10 z-10 border border-gray-100 my-8">
 
                 {/* --- สลับ Header ตามโหมด --- */}
                 <div className="flex flex-col items-center text-center mb-6 relative">

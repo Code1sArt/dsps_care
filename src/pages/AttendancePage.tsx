@@ -138,11 +138,11 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div className="min-h-screen bg-gray-50 pb-32 lg:pb-28">
 
       {/* Header */}
-      <div className="bg-primary px-6 pt-10 pb-6 rounded-b-[30px] shadow-md sticky top-0 z-20">
-        <div className="flex items-center justify-between text-white mb-3">
+      <div className="bg-primary px-6 pt-10 pb-6 rounded-b-[30px] shadow-md sticky top-0 z-20 lg:static lg:px-10 lg:pt-9 lg:pb-8 lg:rounded-b-[40px]">
+        <div className="flex items-center justify-between text-white mb-3 lg:max-w-6xl lg:mx-auto">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               <ClipboardList size={24} /> บันทึกการเช็คชื่อ
@@ -156,7 +156,7 @@ export default function AttendancePage() {
         </div>
 
         {/* Action Bar ใต้ Header */}
-        <div className="flex items-center gap-2 bg-white/20 w-max px-3 py-1.5 rounded-xl backdrop-blur-sm">
+        <div className="flex items-center gap-2 bg-white/20 w-max px-3 py-1.5 rounded-xl backdrop-blur-sm lg:max-w-6xl lg:mx-auto">
           {attendanceType === 'ASSEMBLY' ? <Flag size={16} className="text-white" /> : <MapPin size={16} className="text-white" />}
           <span className="text-xs font-bold text-white">
             {attendanceType === 'ASSEMBLY' ? 'เข้าแถวหน้าเสาธง' : attendanceType === 'AREA' ? 'เวรเขตพื้นที่' : 'ยังไม่เลือก'}
@@ -165,7 +165,7 @@ export default function AttendancePage() {
       </div>
 
       {/* 💡 แผงควบคุม: เปลี่ยนสถานะทั้งหมด (Bulk Actions) */}
-      <div className="px-4 mt-4 relative z-10">
+      <div className="px-4 mt-4 relative z-10 lg:max-w-6xl lg:mx-auto lg:px-10 lg:mt-6">
         <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-2 px-1">
             <Users size={16} className="text-gray-400" />
@@ -193,7 +193,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Student List */}
-      <div className="px-4 py-4 space-y-3">
+      <div className="px-4 py-4 space-y-3 lg:max-w-6xl lg:mx-auto lg:px-10 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
         {students.map((student, index) => (
           <div key={student.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-3">
@@ -235,10 +235,10 @@ export default function AttendancePage() {
 
       {/* Sticky Bottom Save Button */}
       {attendanceType && students.length > 0 && (
-        <div className="fixed bottom-[72px] sm:absolute left-0 w-full px-6 py-4 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-40">
+        <div className="fixed bottom-[72px] lg:bottom-0 left-0 lg:left-64 w-full lg:w-[calc(100%_-_16rem)] px-6 py-4 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-40">
           <button
             onClick={handleSaveAttendance}
-            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/30 active:scale-95 transition-transform"
+            className="w-full lg:max-w-2xl lg:mx-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/30 active:scale-95 transition-transform"
           >
             <Save size={20} /> บันทึกข้อมูลเข้าสู่ระบบ
           </button>
