@@ -76,7 +76,7 @@ export default function HomePage() {
                 <div className="flex items-start justify-between lg:max-w-6xl lg:mx-auto">
                     <div>
                         <p className="text-primary-light text-sm font-medium">ยินดีต้อนรับสู่ DSPS Care</p>
-                        <h1 className="text-white text-xl lg:text-3xl font-bold mt-1">โรงเรียนเทพศิรินทร์พุแค สระบุรี</h1>
+                        <h1 className="text-white text-xl lg:text-3xl font-bold mt-1">โรงเรียนเทพศิรินทร์พุแค</h1>
                     </div>
                     <div className="w-12 h-12 bg-white/20 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/30 shadow-sm">
                         <BellRing className="text-white" size={24} />

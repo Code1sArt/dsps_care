@@ -51,7 +51,7 @@ export default function MobileLayout() {
                     </div>
                     <div>
                         <p className="font-black text-lg leading-tight">DSPS Care</p>
-                        <p className="text-[10px] text-white/65 mt-1">โรงเรียนเทพศิรินทร์พุแค สระบุรี</p>
+                        <p className="text-[10px] text-white/65 mt-1">โรงเรียนเทพศิรินทร์พุแค</p>
                     </div>
                 </div>
 
