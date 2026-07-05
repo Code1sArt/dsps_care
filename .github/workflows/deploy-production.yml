@@ -40,6 +40,9 @@ jobs:
         with:
           name: production-dist
           path: dist/
+          # Required for Apache/Plesk SPA routing. Hidden files are excluded by
+          # upload-artifact unless explicitly enabled.
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
 
@@ -80,3 +83,9 @@ jobs:
           -e "ssh -p 22"
           dist/
           waiistudio@118.27.146.122:/var/www/vhosts/dspscare.com/httpdocs/
+
+      - name: Verify client-side route refresh
+        run: >-
+          curl --fail --silent --show-error --retry 3
+          "https://dspscare.com/behavior?deployment=${GITHUB_SHA}"
+          | grep -Fq '<div id="root"></div>'
