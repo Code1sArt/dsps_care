@@ -1,22 +1,22 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
     Home, User, ClipboardList,
-    ShieldCheck, History, GraduationCap
+    ShieldCheck, History
 } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 export default function MobileLayout() {
     const location = useLocation();
-    const [userRole, setUserRole] = useState<string>('');
-
-    // ดึง Role จาก LocalStorage ทันทีที่โหลด Layout นี้
-    useEffect(() => {
+    const userRole = (() => {
         const userDataStr = localStorage.getItem('user_data');
-        if (userDataStr) {
-            const user = JSON.parse(userDataStr);
-            setUserRole(user.role || '');
+        if (!userDataStr) return '';
+        try {
+            const user = JSON.parse(userDataStr) as { role?: string };
+            return user.role ?? '';
+        } catch {
+            return '';
         }
-    }, []);
+    })();
 
     // ใช้ useMemo กรองเมนูตาม Role 
     const navItems = useMemo(() => {
@@ -46,8 +46,12 @@ export default function MobileLayout() {
             {/* Sidebar สำหรับแท็บเล็ตแนวนอนและเดสก์ท็อป */}
             <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-primary text-white z-50 flex-col shadow-2xl shadow-primary/20">
                 <div className="h-24 px-6 flex items-center gap-3 border-b border-white/10">
-                    <div className="w-11 h-11 rounded-2xl bg-accent text-primary flex items-center justify-center shadow-lg shadow-black/10">
-                        <GraduationCap size={25} strokeWidth={2.5} />
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center p-1 shadow-lg shadow-black/10">
+                        <img
+                            src="/school-logo.png"
+                            alt="ตราโรงเรียนเทพศิรินทร์พุแค สระบุรี"
+                            className="h-full w-full object-contain"
+                        />
                     </div>
                     <div>
                         <p className="font-black text-lg leading-tight">DSPS Care</p>
