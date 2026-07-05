@@ -7,6 +7,7 @@ import BindingPage from './pages/BindingPage'; // เดี๋ยวเราจ
 import ProfilePage from './pages/ProfilePage';
 import Home from './pages/HomePage';
 import AttendancePage from './pages/AttendancePage';
+import AttendanceHistoryPage from './pages/AttendanceHistoryPage';
 import BehaviorPage from './pages/BehaviorPage';
 import DevLoginPage from './pages/DevLoginPage';
 import { api } from './lib/api';
@@ -111,10 +112,6 @@ export default function App() {
 
 
   }
-  const DummyPage = ({ title }: { title: string }) => (
-    <div className="p-6 pb-24"><h1 className="text-xl font-bold">{title}</h1></div>
-  );
-
   // ถ้าผูกบัญชีแล้ว ให้เข้าใช้งานระบบหลัก (มีเมนูด้านล่าง)
   return (
     <BrowserRouter>
@@ -127,7 +124,7 @@ export default function App() {
           {/* เพิ่ม Route ใหม่ตรงนี้ */}
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/behavior" element={<BehaviorPage />} />
-          <Route path="/history" element={<DummyPage title="ประวัติการเช็คชื่อ" />} />
+          <Route path="/history" element={<AttendanceHistoryPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
