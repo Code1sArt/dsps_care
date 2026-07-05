@@ -98,10 +98,12 @@ export default function ProfilePage() {
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
             return toast.error('รหัสผ่านใหม่ไม่ตรงกัน');
         }
+        if (passwordForm.newPassword.length < 6) {
+            return toast.error('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
+        }
 
         const toastId = toast.loading('กำลังเปลี่ยนรหัสผ่าน...');
         try {
-            // 🚨 สมมติว่า Backend ใช้เส้น PUT /users/me/password
             await api.put('/users/me/password', {
                 oldPassword: passwordForm.oldPassword,
                 newPassword: passwordForm.newPassword
@@ -265,11 +267,11 @@ export default function ProfilePage() {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">รหัสผ่านใหม่</label>
-                                            <input required type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-primary/50 text-sm" />
+                                            <input required minLength={6} type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-primary/50 text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">ยืนยันรหัสผ่านใหม่</label>
-                                            <input required type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-primary/50 text-sm" />
+                                            <input required minLength={6} type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-primary/50 text-sm" />
                                         </div>
                                         <div className="mt-6 flex justify-end gap-2 pt-2 border-t border-gray-100">
                                             <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200">ยกเลิก</button>
