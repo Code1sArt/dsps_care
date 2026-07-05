@@ -2,7 +2,9 @@ import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Dialog, Transition } from '@headlessui/react';
+import { AxiosError } from 'axios';
 import { api } from '../lib/api';
+import type { LucideIcon } from 'lucide-react';
 import {
   ClipboardList, CheckCircle2, XCircle, Clock,
   CalendarDays, Flag, MapPin, Save, Users
@@ -17,8 +19,39 @@ interface Student {
   classroom: { name: string };
 }
 
+interface CurrentUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  advisingClasses?: Array<{ id: number; name: string }>;
+}
+
+interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  recorderId: string;
+  status: AttendanceStatus;
+  recorder: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
 type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE';
 type AttendanceType = 'ASSEMBLY' | 'AREA';
+
+const getTodayInThailand = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(part => part.type === type)?.value ?? '';
+
+  return `${value('year')}-${value('month')}-${value('day')}`;
+};
 
 export default function AttendancePage() {
   const navigate = useNavigate();
@@ -27,23 +60,26 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
   const [className, setClassName] = useState('');
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [classroomId, setClassroomId] = useState<number | null>(null);
 
   // States สำหรับการเช็คชื่อ
   const [attendanceType, setAttendanceType] = useState<AttendanceType | null>(null);
   const [records, setRecords] = useState<Record<string, AttendanceStatus>>({});
+  const [originalRecords, setOriginalRecords] = useState<Record<string, AttendanceStatus>>({});
+  const [attendanceRecordIds, setAttendanceRecordIds] = useState<Record<string, string>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [checkingType, setCheckingType] = useState<AttendanceType | null>(null);
 
   // Modal State
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(true);
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  const fetchStudents = async () => {
+  async function fetchStudents() {
     try {
       setLoading(true);
       // 1. หาว่าครูคนนี้เป็นที่ปรึกษาห้องไหน
       const userRes = await api.get('/users/me');
+      setCurrentUser(userRes.data);
 
       if (!userRes.data.advisingClasses || userRes.data.advisingClasses.length === 0) {
         toast.error('คุณไม่มีห้องเรียนประจำชั้น');
@@ -51,11 +87,12 @@ export default function AttendancePage() {
         return;
       }
 
-      const classroomId = userRes.data.advisingClasses[0].id;
+      const advisingClassroomId = userRes.data.advisingClasses[0].id;
+      setClassroomId(advisingClassroomId);
       setClassName(userRes.data.advisingClasses[0].name);
 
       // 2. ดึงรายชื่อนักเรียนในห้องนั้น
-      const stuRes = await api.get(`/students?classroomId=${classroomId}`);
+      const stuRes = await api.get(`/students?classroomId=${advisingClassroomId}`);
       setStudents(stuRes.data);
 
       // 3. ตั้งค่าเริ่มต้นให้ทุกคนเป็น PRESENT (มาเรียน) เพื่อความรวดเร็ว
@@ -65,11 +102,74 @@ export default function AttendancePage() {
       });
       setRecords(initialRecords);
 
-    } catch (error) {
+    } catch {
       toast.error('ไม่สามารถโหลดรายชื่อนักเรียนได้');
       navigate('/');
     } finally {
       setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // โหลดข้อมูลครั้งเดียวเมื่อเปิดหน้า
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSelectAttendanceType = async (type: AttendanceType) => {
+    if (!currentUser || classroomId === null) return;
+
+    try {
+      setCheckingType(type);
+      const historyRes = await api.get('/attendance/history/daily', {
+        params: {
+          date: getTodayInThailand(),
+          classroomId,
+          type,
+        },
+      });
+      const todayRecords = (historyRes.data.records?.[type] ?? []) as AttendanceRecord[];
+
+      if (todayRecords.length === 0) {
+        setAttendanceType(type);
+        setIsEditing(false);
+        setOriginalRecords({});
+        setAttendanceRecordIds({});
+        setIsTypeModalOpen(false);
+        return;
+      }
+
+      const foreignRecord = todayRecords.find(record => record.recorderId !== currentUser.id);
+      if (foreignRecord) {
+        const recorderName = `${foreignRecord.recorder.firstName} ${foreignRecord.recorder.lastName}`.trim();
+        toast.error(`ครู ${recorderName} ได้เช็คชื่อของวันนี้ไปแล้ว`, { duration: 5000 });
+        return;
+      }
+
+      const savedRecords: Record<string, AttendanceStatus> = {};
+      const savedRecordIds: Record<string, string> = {};
+      todayRecords.forEach(record => {
+        savedRecords[record.studentId] = record.status;
+        savedRecordIds[record.studentId] = record.id;
+      });
+
+      // รองรับกรณีมีนักเรียนเพิ่มเข้าห้องหลังจากบันทึกครั้งแรก
+      students.forEach(student => {
+        if (!savedRecords[student.id]) savedRecords[student.id] = 'PRESENT';
+      });
+
+      setRecords(savedRecords);
+      setOriginalRecords(savedRecords);
+      setAttendanceRecordIds(savedRecordIds);
+      setAttendanceType(type);
+      setIsEditing(true);
+      setIsTypeModalOpen(false);
+      toast.success('พบข้อมูลของวันนี้ คุณสามารถแก้ไขรายการเดิมได้');
+    } catch {
+      toast.error('ไม่สามารถตรวจสอบข้อมูลเช็คชื่อของวันนี้ได้');
+    } finally {
+      setCheckingType(null);
     }
   };
 
@@ -104,13 +204,44 @@ export default function AttendancePage() {
     };
 
     try {
-      await api.post('/attendance/bulk', payload);
-      toast.success('บันทึกการเช็คชื่อสำเร็จ!', { id: toastId });
+      if (isEditing) {
+        const changedRecords = Object.entries(records).filter(
+          ([studentId, status]) =>
+            attendanceRecordIds[studentId] && originalRecords[studentId] !== status,
+        );
+        const newRecords = Object.entries(records).filter(
+          ([studentId]) => !attendanceRecordIds[studentId],
+        );
+
+        if (changedRecords.length === 0 && newRecords.length === 0) {
+          toast.success('ข้อมูลไม่มีการเปลี่ยนแปลง', { id: toastId });
+          return;
+        }
+
+        await Promise.all([
+          ...changedRecords.map(([studentId, status]) =>
+            api.patch(`/attendance/${attendanceRecordIds[studentId]}`, { status }),
+          ),
+          ...(newRecords.length > 0
+            ? [api.post('/attendance/bulk', {
+              type: attendanceType,
+              records: newRecords.map(([studentId, status]) => ({ studentId, status })),
+            })]
+            : []),
+        ]);
+        toast.success('แก้ไขข้อมูลการเช็คชื่อสำเร็จ!', { id: toastId });
+      } else {
+        await api.post('/attendance/bulk', payload);
+        toast.success('บันทึกการเช็คชื่อสำเร็จ!', { id: toastId });
+      }
 
       // บันทึกเสร็จให้เด้งกลับหน้าแรก
       setTimeout(() => navigate('/'), 1500);
     } catch (error) {
-      toast.error('เกิดข้อผิดพลาดในการบันทึก', { id: toastId });
+      const message = error instanceof AxiosError
+        ? error.response?.data?.message
+        : null;
+      toast.error(message || 'เกิดข้อผิดพลาดในการบันทึก', { id: toastId });
     }
   };
 
@@ -118,7 +249,7 @@ export default function AttendancePage() {
   const StatusButton = ({
     studentId, status, label, activeColor, inactiveColor, icon: Icon
   }: {
-    studentId: string, status: AttendanceStatus, label: string, activeColor: string, inactiveColor: string, icon: any
+    studentId: string, status: AttendanceStatus, label: string, activeColor: string, inactiveColor: string, icon: LucideIcon
   }) => {
     const isActive = records[studentId] === status;
     return (
@@ -145,7 +276,7 @@ export default function AttendancePage() {
         <div className="flex items-center justify-between text-white mb-3 lg:max-w-6xl lg:mx-auto">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              <ClipboardList size={24} /> บันทึกการเช็คชื่อ
+              <ClipboardList size={24} /> {isEditing ? 'แก้ไขการเช็คชื่อ' : 'บันทึกการเช็คชื่อ'}
             </h1>
             <p className="text-primary-light text-sm mt-1">ห้อง {className || 'กำลังโหลด...'}</p>
           </div>
@@ -240,7 +371,7 @@ export default function AttendancePage() {
             onClick={handleSaveAttendance}
             className="w-full lg:max-w-2xl lg:mx-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/30 active:scale-95 transition-transform"
           >
-            <Save size={20} /> บันทึกข้อมูลเข้าสู่ระบบ
+            <Save size={20} /> {isEditing ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูลเข้าสู่ระบบ'}
           </button>
         </div>
       )}
@@ -264,7 +395,8 @@ export default function AttendancePage() {
 
                   <div className="space-y-3">
                     <button
-                      onClick={() => { setAttendanceType('ASSEMBLY'); setIsTypeModalOpen(false); }}
+                      onClick={() => handleSelectAttendanceType('ASSEMBLY')}
+                      disabled={checkingType !== null}
                       className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-blue-100 hover:border-blue-500 bg-blue-50/50 transition-all active:scale-95"
                     >
                       <div className="w-12 h-12 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-md">
@@ -277,7 +409,8 @@ export default function AttendancePage() {
                     </button>
 
                     <button
-                      onClick={() => { setAttendanceType('AREA'); setIsTypeModalOpen(false); }}
+                      onClick={() => handleSelectAttendanceType('AREA')}
+                      disabled={checkingType !== null}
                       className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-orange-100 hover:border-orange-500 bg-orange-50/50 transition-all active:scale-95"
                     >
                       <div className="w-12 h-12 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
