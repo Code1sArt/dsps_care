@@ -1,3 +1,7 @@
+# This domain is a static React app. Prevent Plesk's Passenger handler from
+# treating client-side routes such as /behavior as server applications.
+PassengerEnabled off
+
 Options -MultiViews
 RewriteEngine On
 
