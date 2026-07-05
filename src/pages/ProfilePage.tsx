@@ -57,22 +57,39 @@ export default function ProfilePage() {
     };
 
     const handleUpdateProfile = async () => {
-        if (!editForm.firstName || !editForm.lastName) return toast.error('กรุณากรอกข้อมูลให้ครบ');
+        const profileData = {
+            firstName: editForm.firstName.trim(),
+            lastName: editForm.lastName.trim()
+        };
+
+        if (!profileData.firstName || !profileData.lastName) return toast.error('กรุณากรอกข้อมูลให้ครบ');
+        if (!userData?.id) return toast.error('ไม่พบรหัสผู้ใช้งาน');
+
         const toastId = toast.loading('กำลังบันทึกข้อมูล...');
 
         try {
-            // 🚨 สมมติว่า Backend ใช้เส้น PUT /users/me สำหรับอัปเดตข้อมูล
-            const res = await api.put('/users/me', editForm);
-            setUserData({ ...userData, ...res.data });
+            const res = await api.patch(`/users/${userData.id}`, profileData);
+            const updatedUser = res.data.user;
+
+            setUserData(updatedUser);
+            setEditForm({
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName
+            });
             setIsEditingProfile(false);
 
             // อัปเดตข้อมูลใน LocalStorage ด้วย
             const storedUser = JSON.parse(localStorage.getItem('user_data') || '{}');
-            localStorage.setItem('user_data', JSON.stringify({ ...storedUser, ...editForm }));
+            localStorage.setItem('user_data', JSON.stringify({
+                ...storedUser,
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName
+            }));
 
             toast.success('บันทึกข้อมูลสำเร็จ', { id: toastId });
-        } catch (error) {
-            toast.error('ไม่สามารถบันทึกข้อมูลได้', { id: toastId });
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'ไม่สามารถบันทึกข้อมูลได้';
+            toast.error(Array.isArray(message) ? message[0] : message, { id: toastId });
         }
     };
 
