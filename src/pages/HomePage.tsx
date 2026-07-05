@@ -5,6 +5,7 @@ import {
     CheckCircle, XCircle, Medal, Trophy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 // --- Types ตาม API ใหม่ ---
@@ -19,35 +20,42 @@ interface ClassroomSummary {
     };
 }
 
+interface HomeUser {
+    role: 'TEACHER' | 'STUDENT' | 'PARENT' | 'AFFAIRS';
+    firstName: string;
+    advisingClasses?: Array<{ id: number; name: string }>;
+}
+
 export default function HomePage() {
-    const [user, setUser] = useState<any>(null);
+    const navigate = useNavigate();
+    const [user, setUser] = useState<HomeUser | null>(null);
     const [summaryData, setSummaryData] = useState<ClassroomSummary | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchInitialData();
-    }, []);
+        const fetchInitialData = async () => {
+            try {
+                setLoading(true);
+                // 1. ดึงข้อมูลผู้ใช้งานปัจจุบัน
+                const userRes = await api.get<HomeUser>('/users/me');
+                setUser(userRes.data);
 
-    const fetchInitialData = async () => {
-        try {
-            setLoading(true);
-            // 1. ดึงข้อมูลผู้ใช้งานปัจจุบัน
-            const userRes = await api.get('/users/me');
-            setUser(userRes.data);
-
-            // 2. หากเป็นครู ให้ดึงข้อมูลสรุปพฤติกรรมห้องเรียนที่ปรึกษา
-            if (userRes.data.role === 'TEACHER' && userRes.data.advisingClasses?.length > 0) {
-                const classroomId = userRes.data.advisingClasses[0].id;
-                const summaryRes = await api.get(`/summary/classroom/${classroomId}`);
-                setSummaryData(summaryRes.data);
+                // 2. หากเป็นครู ให้ดึงข้อมูลสรุปพฤติกรรมห้องเรียนที่ปรึกษา
+                if (userRes.data.role === 'TEACHER' && userRes.data.advisingClasses?.length) {
+                    const classroomId = userRes.data.advisingClasses[0].id;
+                    const summaryRes = await api.get<ClassroomSummary>(`/summary/classroom/${classroomId}`);
+                    setSummaryData(summaryRes.data);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                toast.error('โหลดข้อมูลล้มเหลว');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            toast.error('โหลดข้อมูลล้มเหลว');
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+
+        void fetchInitialData();
+    }, []);
 
     if (loading) {
         return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div></div>;
@@ -55,19 +63,27 @@ export default function HomePage() {
 
     // กำหนดเมนูลัดตาม Role
     const quickMenus = [
-        { label: 'โปรไฟล์', icon: User, path: '/profile', color: 'bg-accent-soft text-primary' },
-        { label: 'คะแนนพฤติกรรม', icon: ShieldCheck, path: '/behavior', color: 'bg-primary/10 text-primary' },
-        { label: 'ประวัติเช็คชื่อ', icon: History, path: '/history', color: 'bg-primary/10 text-primary' },
-        { label: 'ประกาศ/ข่าว', icon: Newspaper, path: '/news', color: 'bg-accent-soft text-primary' },
+        { label: 'โปรไฟล์', icon: User, path: '/profile', color: 'bg-accent-soft text-primary', available: true },
+        { label: 'คะแนนพฤติกรรม', icon: ShieldCheck, path: '/behavior', color: 'bg-primary/10 text-primary', available: true },
+        { label: 'ประวัติเช็คชื่อ', icon: History, path: '/history', color: 'bg-primary/10 text-primary', available: true },
+        { label: 'ประกาศ/ข่าว', icon: Newspaper, path: '/news', color: 'bg-accent-soft text-primary', available: false },
     ];
 
     // เมนูเพิ่มเติมสำหรับคุณครู
     const teacherMenus = [
-        { label: 'เช็คชื่อวันนี้', icon: ClipboardList, path: '/attendance', color: 'bg-accent-soft text-primary' },
-        { label: 'รายชื่อนักเรียน', icon: Users, path: '/student-list', color: 'bg-primary/10 text-primary' },
-        { label: 'สถิติห้องเรียน', icon: BarChart3, path: '/stats', color: 'bg-accent-soft text-primary' },
-        { label: 'แจ้งเตือน', icon: BellRing, path: '/notify', color: 'bg-primary/10 text-primary' },
+        { label: 'เช็คชื่อวันนี้', icon: ClipboardList, path: '/attendance', color: 'bg-accent-soft text-primary', available: true },
+        { label: 'รายชื่อนักเรียน', icon: Users, path: '/student-list', color: 'bg-primary/10 text-primary', available: false },
+        { label: 'สถิติห้องเรียน', icon: BarChart3, path: '/stats', color: 'bg-accent-soft text-primary', available: false },
+        { label: 'แจ้งเตือน', icon: BellRing, path: '/notify', color: 'bg-primary/10 text-primary', available: false },
     ];
+
+    const handleMenuClick = (path: string, available: boolean) => {
+        if (available) {
+            navigate(path);
+            return;
+        }
+        toast('จะเปิดให้บริการเร็วๆนี้', { icon: '🚧' });
+    };
 
     return (
         <div className="pb-24 bg-gray-50 min-h-screen">
@@ -78,8 +94,12 @@ export default function HomePage() {
                         <p className="text-primary-light text-sm font-medium">ยินดีต้อนรับสู่ DSPS Care</p>
                         <h1 className="text-white text-xl lg:text-3xl font-bold mt-1">โรงเรียนเทพศิรินทร์พุแค สระบุรี</h1>
                     </div>
-                    <div className="w-12 h-12 bg-white/20 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/30 shadow-sm">
-                        <BellRing className="text-white" size={24} />
+                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center border border-white/40 shadow-md p-1.5">
+                        <img
+                            src="/school-logo.png"
+                            alt="ตราโรงเรียนเทพศิรินทร์พุแค สระบุรี"
+                            className="h-full w-full object-contain"
+                        />
                     </div>
                 </div>
             </div>
@@ -166,27 +186,36 @@ export default function HomePage() {
                 <div className="space-y-3 lg:col-span-5">
                     <h3 className="font-bold text-gray-800 px-1 text-sm">เมนูลัด</h3>
                     <div className="grid grid-cols-4 gap-4 lg:gap-5 bg-white p-4 lg:p-6 rounded-3xl shadow-sm border border-gray-100">
-                        {(user?.role === 'TEACHER' ? [...teacherMenus, ...quickMenus] : quickMenus).slice(0, 8).map((menu, idx) => (
-                            <div key={idx} className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-transform">
+                        {(user?.role === 'TEACHER' ? [...teacherMenus, ...quickMenus] : quickMenus).slice(0, 8).map((menu) => (
+                            <button
+                                key={menu.path}
+                                type="button"
+                                onClick={() => handleMenuClick(menu.path, menu.available)}
+                                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-transform"
+                            >
                                 <div className={`w-14 h-14 lg:w-16 lg:h-16 ${menu.color} rounded-2xl flex items-center justify-center shadow-sm`}>
                                     <menu.icon size={24} strokeWidth={2.5} />
                                 </div>
                                 <span className="text-[10px] font-bold text-gray-600 text-center leading-tight whitespace-nowrap">
                                     {menu.label}
                                 </span>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </div>
 
                 {/* Info Banner / Promotion */}
-                <div className="bg-gradient-to-r from-primary to-primary-dark rounded-3xl p-5 lg:p-7 text-white flex items-center justify-between shadow-lg active:scale-[0.98] transition-transform cursor-pointer lg:col-span-5 lg:col-start-8">
+                <button
+                    type="button"
+                    onClick={() => toast('จะเปิดให้บริการเร็วๆนี้', { icon: '🚧' })}
+                    className="w-full text-left bg-gradient-to-r from-primary to-primary-dark rounded-3xl p-5 lg:p-7 text-white flex items-center justify-between shadow-lg active:scale-[0.98] transition-transform cursor-pointer lg:col-span-5 lg:col-start-8"
+                >
                     <div className="space-y-1">
                         <h4 className="font-bold text-sm">คู่มือการใช้งานระบบ</h4>
                         <p className="text-[10px] text-primary-light">เรียนรู้ฟีเจอร์ต่าง ๆ ของ DSPS Care</p>
                     </div>
                     <ChevronRight size={24} className="bg-white/20 rounded-full p-1" />
-                </div>
+                </button>
 
             </div>
         </div>

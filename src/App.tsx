@@ -15,6 +15,14 @@ import { api } from './lib/api';
 const liffId = import.meta.env.VITE_LIFF_ID;
 const isDevelopment = import.meta.env.DEV;
 
+const getStoredUserRole = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user_data') ?? '{}') as { role?: string };
+    return user.role ?? '';
+  } catch {
+    return '';
+  }
+};
 
 export default function App() {
   const [liffError, setLiffError] = useState<string | null>(null);
@@ -57,14 +65,14 @@ export default function App() {
               localStorage.setItem('user_data', JSON.stringify(res.data.user));
               setIsAuthenticated(true);
             }
-          } catch (apiError) {
+          } catch {
             toast.error('ไม่สามารถเชื่อมต่อระบบโรงเรียนได้');
           }
 
           setIsReady(true);
         }
-      } catch (err: any) {
-        setLiffError(err.toString());
+      } catch (err: unknown) {
+        setLiffError(err instanceof Error ? err.message : String(err));
       }
     };
 
@@ -74,6 +82,31 @@ export default function App() {
 
   if (liffError) return <div className="p-10 text-center text-red-500 font-bold">Error: {liffError}</div>;
   if (!isReady) return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+
+  if (isAuthenticated && getStoredUserRole() === 'ADMIN') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <Toaster position="top-center" />
+        <div className="w-full max-w-sm rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-xl">
+          <img
+            src="/school-logo.png"
+            alt="ตราโรงเรียนเทพศิรินทร์พุแค สระบุรี"
+            className="mx-auto mb-5 h-32 w-32 object-contain"
+          />
+          <h1 className="text-xl font-black text-gray-800">สำหรับผู้ดูแลระบบ</h1>
+          <p className="mt-3 text-sm leading-relaxed text-gray-500">
+            Admin ให้ใช้งานบน admin.dspscare.com
+          </p>
+          <a
+            href="https://admin.dspscare.com"
+            className="mt-6 block w-full rounded-2xl bg-primary px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-transform active:scale-95"
+          >
+            ไปยังระบบ Admin
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (isDevelopment && !isAuthenticated) {
     return (
