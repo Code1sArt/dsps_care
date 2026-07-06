@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Dialog, Transition } from '@headlessui/react';
 import { AxiosError } from 'axios';
 import { api } from '../lib/api';
+import { sortStudents } from '../lib/studentSort';
 import type { LucideIcon } from 'lucide-react';
 import {
   ClipboardList, CheckCircle2, XCircle, Clock,
@@ -93,11 +94,12 @@ export default function AttendancePage() {
 
       // 2. ดึงรายชื่อนักเรียนในห้องนั้น
       const stuRes = await api.get(`/students?classroomId=${advisingClassroomId}`);
-      setStudents(stuRes.data);
+      const sortedStudents = sortStudents(stuRes.data as Student[]);
+      setStudents(sortedStudents);
 
       // 3. ตั้งค่าเริ่มต้นให้ทุกคนเป็น PRESENT (มาเรียน) เพื่อความรวดเร็ว
       const initialRecords: Record<string, AttendanceStatus> = {};
-      stuRes.data.forEach((s: Student) => {
+      sortedStudents.forEach((s: Student) => {
         initialRecords[s.id] = 'PRESENT';
       });
       setRecords(initialRecords);

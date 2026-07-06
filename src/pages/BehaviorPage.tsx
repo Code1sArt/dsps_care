@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Dialog, Transition } from '@headlessui/react';
 import { api } from '../lib/api';
+import { sortStudents } from '../lib/studentSort';
 import {
     ShieldCheck, Search, ChevronRight, X,
     TrendingDown, TrendingUp, AlertTriangle, Medal, Trophy, CheckCircle2
@@ -11,9 +12,15 @@ import {
 // --- Types ---
 interface StudentSummary {
     id: string;
+    citizenId: string;
     name: string;
     score: number;
     status: 'NORMAL' | 'FAILED' | 'CERTIFICATE' | 'SHIELD';
+}
+
+interface ClassroomStudent {
+    id: string;
+    citizenId: string;
 }
 
 interface ClassroomSummary {
@@ -75,8 +82,20 @@ export default function BehaviorPage() {
                     return;
                 }
                 const classroomId = userRes.data.advisingClasses[0].id;
-                const res = await api.get(`/summary/classroom/${classroomId}`);
-                setClassroomData(res.data);
+                const [summaryRes, studentsRes] = await Promise.all([
+                    api.get<ClassroomSummary>(`/summary/classroom/${classroomId}`),
+                    api.get<ClassroomStudent[]>(`/students?classroomId=${classroomId}`),
+                ]);
+                const citizenIds = new Map(
+                    studentsRes.data.map(student => [student.id, student.citizenId]),
+                );
+                setClassroomData({
+                    ...summaryRes.data,
+                    students: summaryRes.data.students.map(student => ({
+                        ...student,
+                        citizenId: citizenIds.get(student.id) ?? '',
+                    })),
+                });
             } else if (role === 'STUDENT' || role === 'PARENT') {
                 const targetId = role === 'STUDENT' ? userRes.data.id : userRes.data.children[0]?.id;
                 if (targetId) {
@@ -126,9 +145,9 @@ export default function BehaviorPage() {
     // กรองรายชื่อนักเรียนจากการค้นหา
     const filteredStudents = useMemo(() => {
         if (!classroomData) return [];
-        return classroomData.students.filter(s =>
-            s.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        return sortStudents(classroomData.students.filter(s =>
+            `${s.name} ${s.citizenId}`.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
     }, [classroomData, searchQuery]);
 
     if (loading) {
@@ -178,6 +197,7 @@ export default function BehaviorPage() {
                                     >
                                         <div>
                                             <p className="font-bold text-gray-800 text-sm mb-1">{student.name}</p>
+                                            <p className="mb-1.5 text-[10px] font-mono text-gray-400">รหัส: {student.citizenId}</p>
                                             <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${conf.bg} ${conf.color}`}>
                                                 <conf.icon size={12} strokeWidth={2.5} />
                                                 <span className="text-[10px] font-bold">{conf.label}</span>
