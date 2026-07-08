@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
+  Activity,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -16,7 +17,7 @@ import { api } from '../lib/api';
 
 type UserRole = 'TEACHER' | 'STUDENT' | 'PARENT' | 'ADMIN' | 'AFFAIRS';
 type AttendanceType = 'ASSEMBLY' | 'AREA';
-type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE';
+type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'ACTIVITY';
 
 interface CurrentUser {
   id: string;
@@ -58,6 +59,7 @@ const statusConfig: Record<AttendanceStatus, {
   PRESENT: { label: 'มา', className: 'bg-green-50 text-green-700 border-green-100', icon: CheckCircle2 },
   LATE: { label: 'สาย', className: 'bg-orange-50 text-orange-700 border-orange-100', icon: Clock },
   LEAVE: { label: 'ลา', className: 'bg-blue-50 text-blue-700 border-blue-100', icon: CalendarDays },
+  ACTIVITY: { label: 'กิจกรรม', className: 'bg-cyan-50 text-cyan-700 border-cyan-100', icon: Activity },
   ABSENT: { label: 'ขาด', className: 'bg-red-50 text-red-700 border-red-100', icon: XCircle },
 };
 
@@ -275,6 +277,7 @@ export default function AttendanceHistoryPage() {
                 <option value="PRESENT">มา</option>
                 <option value="LATE">สาย</option>
                 <option value="LEAVE">ลา</option>
+                <option value="ACTIVITY">กิจกรรม</option>
                 <option value="ABSENT">ขาด</option>
               </select>
               <label className="text-[10px] font-bold text-gray-500">

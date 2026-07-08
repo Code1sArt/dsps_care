@@ -8,7 +8,7 @@ import { sortStudents } from '../lib/studentSort';
 import type { LucideIcon } from 'lucide-react';
 import {
   ClipboardList, CheckCircle2, XCircle, Clock,
-  CalendarDays, Flag, MapPin, Save, Users
+  CalendarDays, Flag, MapPin, Save, Users, Activity
 } from 'lucide-react';
 
 // --- Types ---
@@ -38,7 +38,7 @@ interface AttendanceRecord {
   };
 }
 
-type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE';
+type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'ACTIVITY';
 type AttendanceType = 'ASSEMBLY' | 'AREA';
 
 const getTodayInThailand = () => {
@@ -304,7 +304,7 @@ export default function AttendancePage() {
             <Users size={16} className="text-gray-400" />
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">จัดการทั้งห้อง</p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <button onClick={() => handleMarkAll('PRESENT', 'มาเรียน')} className="flex-1 py-2 flex flex-col items-center gap-1 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 active:scale-95 transition-all">
               <CheckCircle2 size={16} strokeWidth={2.5} />
               <span className="text-[10px] font-bold">มาทั้งหมด</span>
@@ -316,6 +316,10 @@ export default function AttendancePage() {
             <button onClick={() => handleMarkAll('LEAVE', 'ลา')} className="flex-1 py-2 flex flex-col items-center gap-1 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all">
               <CalendarDays size={16} strokeWidth={2.5} />
               <span className="text-[10px] font-bold">ลาทั้งหมด</span>
+            </button>
+            <button onClick={() => handleMarkAll('ACTIVITY', 'กิจกรรม')} className="flex-1 py-2 flex flex-col items-center gap-1 rounded-xl bg-cyan-50 text-cyan-600 hover:bg-cyan-100 active:scale-95 transition-all">
+              <Activity size={16} strokeWidth={2.5} />
+              <span className="text-[10px] font-bold">กิจกรรม</span>
             </button>
             <button onClick={() => handleMarkAll('ABSENT', 'ขาด')} className="flex-1 py-2 flex flex-col items-center gap-1 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 transition-all">
               <XCircle size={16} strokeWidth={2.5} />
@@ -340,7 +344,7 @@ export default function AttendancePage() {
             </div>
 
             {/* Status Toggles */}
-            <div className="flex gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <StatusButton
                 studentId={student.id} status="PRESENT" label="มา" icon={CheckCircle2}
                 activeColor="bg-green-500 text-white shadow-md shadow-green-200"
@@ -355,6 +359,11 @@ export default function AttendancePage() {
                 studentId={student.id} status="LEAVE" label="ลา" icon={CalendarDays}
                 activeColor="bg-blue-500 text-white shadow-md shadow-blue-200"
                 inactiveColor="bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+              />
+              <StatusButton
+                studentId={student.id} status="ACTIVITY" label="กิจกรรม" icon={Activity}
+                activeColor="bg-cyan-500 text-white shadow-md shadow-cyan-200"
+                inactiveColor="bg-gray-50 text-gray-400 hover:bg-cyan-50 hover:text-cyan-500"
               />
               <StatusButton
                 studentId={student.id} status="ABSENT" label="ขาด" icon={XCircle}
