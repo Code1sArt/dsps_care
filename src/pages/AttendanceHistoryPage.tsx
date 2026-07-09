@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { sortStudents } from '../lib/studentSort';
 
 type UserRole = 'TEACHER' | 'STUDENT' | 'PARENT' | 'ADMIN' | 'AFFAIRS';
 type AttendanceType = 'ASSEMBLY' | 'AREA';
@@ -25,6 +26,7 @@ interface CurrentUser {
   firstName: string;
   lastName: string;
   advisingClasses?: Array<{ id: number; name: string }>;
+  children?: Student[];
 }
 
 interface Student {
@@ -117,7 +119,17 @@ export default function AttendanceHistoryPage() {
           const studentsRes = await api.get<Student[]>('/students', {
             params: { classroomId: classroom.id },
           });
-          setStudents(studentsRes.data);
+          setStudents(sortStudents(studentsRes.data));
+          return;
+        }
+
+        if (user.role === 'PARENT') {
+          const children = sortStudents(user.children ?? []);
+          setStudents(children);
+
+          if (children.length === 1) {
+            await openStudentHistory(children[0]);
+          }
         }
       } catch {
         toast.error('ไม่สามารถโหลดประวัติการเช็คชื่อได้');
@@ -129,7 +141,7 @@ export default function AttendanceHistoryPage() {
     void loadPage();
   }, []);
 
-  const openStudentHistory = async (student: Student) => {
+  async function openStudentHistory(student: Student) {
     try {
       setHistoryLoading(true);
       setSelectedStudent(student);
@@ -146,7 +158,7 @@ export default function AttendanceHistoryPage() {
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }
 
   const filteredStudents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -174,14 +186,17 @@ export default function AttendanceHistoryPage() {
     );
   }
 
-  const isTeacherList = currentUser?.role === 'TEACHER' && !selectedStudent;
+  const isStudentList =
+    (currentUser?.role === 'TEACHER' || currentUser?.role === 'PARENT') &&
+    !selectedStudent;
+  const isParent = currentUser?.role === 'PARENT';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-primary px-6 pb-6 pt-10 text-white shadow-md lg:px-10 lg:pb-8 lg:pt-9">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center gap-3">
-            {currentUser?.role === 'TEACHER' && selectedStudent && (
+            {(currentUser?.role === 'TEACHER' || currentUser?.role === 'PARENT') && selectedStudent && (
               <button
                 onClick={() => {
                   setSelectedStudent(null);
@@ -199,8 +214,10 @@ export default function AttendanceHistoryPage() {
                 ประวัติการเช็คชื่อ
               </h1>
               <p className="mt-1 text-xs text-primary-light">
-                {isTeacherList
-                  ? `ห้อง ${currentUser.advisingClasses?.[0]?.name ?? '-'}`
+                {isStudentList
+                  ? isParent
+                    ? 'เลือกนักเรียนในความดูแล'
+                    : `ห้อง ${currentUser.advisingClasses?.[0]?.name ?? '-'}`
                   : selectedStudent
                     ? `${selectedStudent.firstName} ${selectedStudent.lastName}`
                     : 'ข้อมูลการเข้าเรียน'}
@@ -208,7 +225,7 @@ export default function AttendanceHistoryPage() {
             </div>
           </div>
 
-          {isTeacherList && (
+          {isStudentList && (
             <div className="relative mt-5">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -222,10 +239,12 @@ export default function AttendanceHistoryPage() {
         </div>
       </header>
 
-      {isTeacherList ? (
+      {isStudentList ? (
         <main className="mx-auto max-w-6xl px-4 py-6 lg:px-10">
           <div className="mb-4 flex items-center justify-between px-1">
-            <h2 className="font-bold text-gray-700">รายชื่อนักเรียน</h2>
+            <h2 className="font-bold text-gray-700">
+              {isParent ? 'นักเรียนในความดูแล' : 'รายชื่อนักเรียน'}
+            </h2>
             <span className="text-xs text-gray-500">{filteredStudents.length} คน</span>
           </div>
           <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
