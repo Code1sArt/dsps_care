@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
     User, ClipboardList, ShieldCheck, History,
-    Users, BarChart3, BellRing, ChevronRight,
+    Users, BarChart3, BellRing,
     CheckCircle, XCircle, Medal, Trophy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import AcademicCalendarCard from '../components/AcademicCalendarCard';
 
 // --- Types ตาม API ใหม่ ---
 interface ClassroomSummary {
@@ -206,18 +207,9 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                {/* Info Banner / Promotion */}
-                <button
-                    type="button"
-                    onClick={() => toast('จะเปิดให้บริการเร็วๆนี้', { icon: '🚧' })}
-                    className="w-full text-left bg-gradient-to-r from-primary to-primary-dark rounded-3xl p-5 lg:p-7 text-white flex items-center justify-between shadow-lg active:scale-[0.98] transition-transform cursor-pointer lg:col-span-5 lg:col-start-8"
-                >
-                    <div className="space-y-1">
-                        <h4 className="font-bold text-sm">คู่มือการใช้งานระบบ</h4>
-                        <p className="text-[10px] text-primary-light">เรียนรู้ฟีเจอร์ต่าง ๆ ของ DSPS Care</p>
-                    </div>
-                    <ChevronRight size={24} className="bg-white/20 rounded-full p-1" />
-                </button>
+                <div className="lg:col-span-5 lg:col-start-8">
+                    <AcademicCalendarCard />
+                </div>
 
             </div>
         </div>
