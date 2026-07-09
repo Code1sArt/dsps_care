@@ -10,6 +10,7 @@ import AttendancePage from './pages/AttendancePage';
 import AttendanceHistoryPage from './pages/AttendanceHistoryPage';
 import BehaviorPage from './pages/BehaviorPage';
 import BehaviorManagePage from './pages/BehaviorManagePage';
+import ClassroomStatsPage from './pages/ClassroomStatsPage';
 import DevLoginPage from './pages/DevLoginPage';
 import { api } from './lib/api';
 
@@ -159,6 +160,7 @@ export default function App() {
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/behavior" element={<BehaviorPage />} />
           <Route path="/behavior-manage" element={<BehaviorManagePage />} />
+          <Route path="/stats" element={<ClassroomStatsPage />} />
           <Route path="/history" element={<AttendanceHistoryPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

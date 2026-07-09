@@ -75,7 +75,7 @@ export default function HomePage() {
     const teacherMenus = [
         { label: 'เช็คชื่อวันนี้', icon: ClipboardList, path: '/attendance', color: 'bg-accent-soft text-primary', available: true },
         { label: 'รายชื่อนักเรียน', icon: Users, path: '/student-list', color: 'bg-primary/10 text-primary', available: false },
-        { label: 'สถิติห้องเรียน', icon: BarChart3, path: '/stats', color: 'bg-accent-soft text-primary', available: false },
+        { label: 'สถิติห้องเรียน', icon: BarChart3, path: '/stats', color: 'bg-accent-soft text-primary', available: true },
         { label: 'แจ้งเตือน', icon: BellRing, path: '/notify', color: 'bg-primary/10 text-primary', available: false },
     ];
 
