@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useMemo } from 'react';
+import { useState, useEffect, Fragment, useMemo, type SVGProps } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Dialog, Transition } from '@headlessui/react';
@@ -23,9 +23,17 @@ interface ClassroomStudent {
     citizenId: string;
 }
 
+interface ParentChild {
+    id: string;
+    citizenId: string;
+    firstName: string;
+    lastName: string;
+    classroom?: { name: string } | null;
+}
+
 interface ClassroomSummary {
     className: string;
-    summary: any;
+    summary: Record<string, unknown>;
     students: StudentSummary[];
 }
 
@@ -57,6 +65,7 @@ export default function BehaviorPage() {
     // States สำหรับข้อมูลทั้งห้อง (มุมมองครู)
     const [userRole, setUserRole] = useState('');
     const [classroomData, setClassroomData] = useState<ClassroomSummary | null>(null);
+    const [parentStudents, setParentStudents] = useState<ParentChild[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -65,64 +74,69 @@ export default function BehaviorPage() {
     const [studentDetail, setStudentDetail] = useState<StudentDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
 
-    useEffect(() => {
-        fetchInitialData();
-    }, []);
-
-    const fetchInitialData = async () => {
-        try {
-            setLoading(true);
-            const userRes = await api.get('/users/me');
-            const role = userRes.data.role;
-            setUserRole(role);
-
-            if (role === 'TEACHER') {
-                if (!userRes.data.advisingClasses || userRes.data.advisingClasses.length === 0) {
-                    toast.error('ไม่พบห้องเรียนที่ปรึกษา');
-                    return;
-                }
-                const classroomId = userRes.data.advisingClasses[0].id;
-                const [summaryRes, studentsRes] = await Promise.all([
-                    api.get<ClassroomSummary>(`/summary/classroom/${classroomId}`),
-                    api.get<ClassroomStudent[]>(`/students?classroomId=${classroomId}`),
-                ]);
-                const citizenIds = new Map(
-                    studentsRes.data.map(student => [student.id, student.citizenId]),
-                );
-                setClassroomData({
-                    ...summaryRes.data,
-                    students: summaryRes.data.students.map(student => ({
-                        ...student,
-                        citizenId: citizenIds.get(student.id) ?? '',
-                    })),
-                });
-            } else if (role === 'STUDENT' || role === 'PARENT') {
-                const targetId = role === 'STUDENT' ? userRes.data.id : userRes.data.children[0]?.id;
-                if (targetId) {
-                    await openStudentDetail(targetId);
-                    setIsDetailOpen(true);
-                }
-            }
-        } catch (error) {
-            toast.error('ไม่สามารถโหลดข้อมูลได้');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const openStudentDetail = async (studentId: string) => {
+    async function openStudentDetail(studentId: string) {
         try {
             setDetailLoading(true);
             setIsDetailOpen(true);
             const res = await api.get(`/summary/student/${studentId}`);
             setStudentDetail(res.data);
-        } catch (error) {
+        } catch {
             toast.error('โหลดข้อมูลนักเรียนล้มเหลว');
             setIsDetailOpen(false);
         } finally {
             setDetailLoading(false);
         }
-    };
+    }
+
+    useEffect(() => {
+        const loadPage = async () => {
+            try {
+                setLoading(true);
+                const userRes = await api.get('/users/me');
+                const role = userRes.data.role;
+                setUserRole(role);
+
+                if (role === 'TEACHER') {
+                    if (!userRes.data.advisingClasses || userRes.data.advisingClasses.length === 0) {
+                        toast.error('ไม่พบห้องเรียนที่ปรึกษา');
+                        return;
+                    }
+                    const classroomId = userRes.data.advisingClasses[0].id;
+                    const [summaryRes, studentsRes] = await Promise.all([
+                        api.get<ClassroomSummary>(`/summary/classroom/${classroomId}`),
+                        api.get<ClassroomStudent[]>(`/students?classroomId=${classroomId}`),
+                    ]);
+                    const citizenIds = new Map(
+                        studentsRes.data.map(student => [student.id, student.citizenId]),
+                    );
+                    setClassroomData({
+                        ...summaryRes.data,
+                        students: summaryRes.data.students.map(student => ({
+                            ...student,
+                            citizenId: citizenIds.get(student.id) ?? '',
+                        })),
+                    });
+                } else if (role === 'STUDENT') {
+                    await openStudentDetail(userRes.data.id);
+                } else if (role === 'PARENT') {
+                    const children = sortStudents((userRes.data.children ?? []) as ParentChild[]);
+                    setParentStudents(children);
+
+                    if (children.length === 1) {
+                        await openStudentDetail(children[0].id);
+                    } else if (children.length === 0) {
+                        toast.error('ไม่พบนักเรียนในความดูแล');
+                    }
+                }
+            } catch {
+                toast.error('ไม่สามารถโหลดข้อมูลได้');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void loadPage();
+    }, []);
 
     // Helper function สำหรับสีและไอคอนตามสถานะ
     const getStatusConfig = (status: string) => {
@@ -149,6 +163,23 @@ export default function BehaviorPage() {
             `${s.name} ${s.citizenId}`.toLowerCase().includes(searchQuery.toLowerCase())
         ));
     }, [classroomData, searchQuery]);
+
+    const filteredParentStudents = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return parentStudents;
+        return parentStudents.filter(student =>
+            `${student.firstName} ${student.lastName} ${student.citizenId}`.toLowerCase().includes(query),
+        );
+    }, [parentStudents, searchQuery]);
+
+    const closeDetail = () => {
+        if (userRole === 'TEACHER' || (userRole === 'PARENT' && parentStudents.length > 1)) {
+            setIsDetailOpen(false);
+            return;
+        }
+
+        navigate('/');
+    };
 
     if (loading) {
         return <div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div></div>;
@@ -221,13 +252,79 @@ export default function BehaviorPage() {
                 </>
             )}
 
+            {userRole === 'PARENT' && parentStudents.length > 1 && (
+                <>
+                    <div className="bg-primary px-6 pt-10 pb-6 shadow-md sticky top-0 z-10 lg:static lg:px-10 lg:pt-9 lg:pb-8">
+                        <div className="lg:max-w-6xl lg:mx-auto">
+                            <h1 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-2 mb-1">
+                                <ShieldCheck size={24} /> คะแนนพฤติกรรม
+                            </h1>
+                            <p className="mb-5 text-xs text-primary-light">เลือกนักเรียนในความดูแล</p>
+
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="ค้นหาชื่อ นามสกุล หรือรหัสนักเรียน"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 bg-white border-none rounded-xl outline-none focus:ring-2 focus:ring-primary-light text-sm shadow-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="px-4 py-6 lg:max-w-6xl lg:mx-auto lg:px-10">
+                        <div className="flex items-center justify-between mb-4 px-1">
+                            <h2 className="font-bold text-gray-700">นักเรียนในความดูแล</h2>
+                            <span className="text-xs text-gray-500">{filteredParentStudents.length} คน</span>
+                        </div>
+
+                        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+                            {filteredParentStudents.map((student, index) => (
+                                <button
+                                    key={student.id}
+                                    onClick={() => openStudentDetail(student.id)}
+                                    className="flex w-full items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
+                                >
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                                        {index + 1}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-bold text-gray-800">
+                                            {student.firstName} {student.lastName}
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-gray-400">
+                                            รหัส {student.citizenId || '-'}
+                                            {student.classroom?.name ? ` · ห้อง ${student.classroom.name}` : ''}
+                                        </p>
+                                    </div>
+                                    <ChevronRight className="text-gray-300" size={20} />
+                                </button>
+                            ))}
+
+                            {filteredParentStudents.length === 0 && (
+                                <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-400 lg:col-span-2">
+                                    ไม่พบรายชื่อนักเรียน
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {userRole === 'PARENT' && parentStudents.length === 0 && (
+                <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-gray-500">
+                    ไม่พบนักเรียนในความดูแล
+                </div>
+            )}
+
             {/* ------------------------------------------------------------- */}
             {/* Modal: รายละเอียดนักเรียน (Popup ตรงกลางจอ) */}
             {/* ------------------------------------------------------------- */}
             <Transition appear show={isDetailOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-[100]" onClose={() => {
-                    if (userRole === 'TEACHER') setIsDetailOpen(false);
-                    else navigate('/');
+                    closeDetail();
                 }}>
                     {/* Background Overlay */}
                     <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
@@ -251,7 +348,7 @@ export default function BehaviorPage() {
                                                     รายละเอียดพฤติกรรม
                                                 </Dialog.Title>
                                                 <button
-                                                    onClick={() => userRole === 'TEACHER' ? setIsDetailOpen(false) : navigate('/')}
+                                                    onClick={closeDetail}
                                                     className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full active:scale-95 transition-all"
                                                 >
                                                     <X size={20} />
@@ -342,9 +439,13 @@ export default function BehaviorPage() {
 }
 
 // ขอยืมตัวแปรไอคอนมาใช้นิดนึงครับ
-function HistoryIcon(props: any) {
+interface HistoryIconProps extends SVGProps<SVGSVGElement> {
+    size?: number | string;
+}
+
+function HistoryIcon({ size = 24, ...props }: HistoryIconProps) {
     return (
-        <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg {...props} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />
             <path d="M12 7v5l4 2" />
