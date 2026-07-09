@@ -4,9 +4,23 @@ import { Dialog, Transition } from '@headlessui/react';
 import { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import {
-  AlertCircle, Check, CheckSquare, ChevronLeft, History, Loader2,
-  MinusCircle, PlusCircle, Save, Search, ShieldCheck, Square, Trash2,
-  UserRoundCheck, Users, X
+  AlertCircle,
+  Check,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Loader2,
+  MinusCircle,
+  PlusCircle,
+  Save,
+  Search,
+  ShieldCheck,
+  Square,
+  Trash2,
+  UserRoundCheck,
+  Users,
+  X,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { sortStudents } from '../lib/studentSort';
@@ -14,6 +28,7 @@ import { sortStudents } from '../lib/studentSort';
 type UserRole = 'TEACHER' | 'AFFAIRS' | 'STUDENT' | 'PARENT' | 'ADMIN';
 type PointType = 'ADD' | 'DEDUCT';
 type ManageMode = 'single' | 'bulk';
+type BulkStep = 'students' | 'details';
 
 interface CurrentUser {
   id: string;
@@ -58,9 +73,17 @@ interface BehaviorRecord {
 
 interface CategoryPickerProps {
   categories: PointCategory[];
+  selectedPointType: PointType | '';
   selectedCategoryId: string;
+  searchQuery: string;
+  page: number;
+  onSelectPointType: (type: PointType) => void;
   onSelectCategory: (categoryId: string) => void;
+  onSearchChange: (query: string) => void;
+  onPageChange: (page: number) => void;
 }
+
+const PAGE_SIZE = 10;
 
 const formatStudentName = (student: Student) =>
   `${student.firstName} ${student.lastName}`.trim();
@@ -83,69 +106,182 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-function CategoryPicker({ categories, selectedCategoryId, onSelectCategory }: CategoryPickerProps) {
-  const addCategories = categories.filter(category => category.type === 'ADD');
-  const deductCategories = categories.filter(category => category.type === 'DEDUCT');
+function CategoryPicker({
+  categories,
+  selectedPointType,
+  selectedCategoryId,
+  searchQuery,
+  page,
+  onSelectPointType,
+  onSelectCategory,
+  onSearchChange,
+  onPageChange,
+}: CategoryPickerProps) {
+  const typeFilteredCategories = selectedPointType
+    ? categories.filter(category => category.type === selectedPointType)
+    : [];
+  const query = searchQuery.trim().toLowerCase();
+  const filteredCategories = query
+    ? typeFilteredCategories.filter(category => category.name.toLowerCase().includes(query))
+    : typeFilteredCategories;
+  const pageCount = Math.max(1, Math.ceil(filteredCategories.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const visibleCategories = filteredCategories.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const addCount = categories.filter(category => category.type === 'ADD').length;
+  const deductCount = categories.filter(category => category.type === 'DEDUCT').length;
 
-  const renderGroup = (
-    title: string,
-    type: PointType,
-    groupCategories: PointCategory[],
-  ) => {
-    const isAdd = type === 'ADD';
-    return (
-      <div className="space-y-2">
-        <div className={`flex items-center gap-2 text-xs font-black ${isAdd ? 'text-green-700' : 'text-red-700'}`}>
-          {isAdd ? <PlusCircle size={16} /> : <MinusCircle size={16} />}
-          {title}
+  const handleTypeSelect = (type: PointType) => {
+    onSelectPointType(type);
+    onSelectCategory('');
+    onSearchChange('');
+    onPageChange(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    onSearchChange(value);
+    onPageChange(1);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="mb-2 text-xs font-black text-gray-700">เลือกก่อนว่าจะบันทึกแบบไหน</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => handleTypeSelect('ADD')}
+            className={`rounded-2xl border p-3 text-left transition-all active:scale-[0.98] ${
+              selectedPointType === 'ADD'
+                ? 'border-green-300 bg-green-50 ring-2 ring-green-100'
+                : 'border-gray-100 bg-white'
+            }`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-black text-green-700">
+                <PlusCircle size={18} />
+                เพิ่มคะแนน
+              </span>
+              {selectedPointType === 'ADD' && <Check size={17} className="text-green-700" />}
+            </span>
+            <span className="mt-1 block text-[11px] font-bold text-green-600">{addCount} รายการ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTypeSelect('DEDUCT')}
+            className={`rounded-2xl border p-3 text-left transition-all active:scale-[0.98] ${
+              selectedPointType === 'DEDUCT'
+                ? 'border-red-300 bg-red-50 ring-2 ring-red-100'
+                : 'border-gray-100 bg-white'
+            }`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-black text-red-700">
+                <MinusCircle size={18} />
+                ลดคะแนน
+              </span>
+              {selectedPointType === 'DEDUCT' && <Check size={17} className="text-red-700" />}
+            </span>
+            <span className="mt-1 block text-[11px] font-bold text-red-600">{deductCount} รายการ</span>
+          </button>
         </div>
-        {groupCategories.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 px-3 py-4 text-center text-xs font-medium text-gray-400">
-            ไม่มีประเภทคะแนนในกลุ่มนี้
+      </div>
+
+      {selectedPointType ? (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={17} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={event => handleSearchChange(event.target.value)}
+              placeholder="ค้นหาประเภทคะแนน..."
+              className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            />
           </div>
-        ) : (
-          <div className="grid gap-2">
-            {groupCategories.map(category => {
+
+          <div className="space-y-2">
+            {visibleCategories.map(category => {
               const selected = selectedCategoryId === String(category.id);
+              const isAdd = category.type === 'ADD';
               return (
                 <button
                   key={category.id}
                   type="button"
                   onClick={() => onSelectCategory(String(category.id))}
-                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-all active:scale-[0.99] ${
+                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.99] ${
                     selected
                       ? isAdd
                         ? 'border-green-300 bg-green-50 ring-2 ring-green-100'
                         : 'border-red-300 bg-red-50 ring-2 ring-red-100'
-                      : 'border-gray-100 bg-white hover:border-gray-200'
+                      : 'border-gray-100 bg-white'
                   }`}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-black text-gray-800">{category.name}</span>
-                    <span className={`mt-0.5 block text-[10px] font-bold ${isAdd ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className="block break-words text-sm font-black leading-5 text-gray-800"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 2,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {category.name}
+                    </span>
+                    <span className={`mt-1 block text-[11px] font-bold ${isAdd ? 'text-green-600' : 'text-red-600'}`}>
                       {isAdd ? 'เพิ่ม' : 'ลด'} {category.defaultPoints} คะแนน
                     </span>
                   </span>
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     selected
                       ? isAdd ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
                       : 'bg-gray-100 text-gray-300'
                   }`}>
-                    <Check size={14} />
+                    <Check size={16} />
                   </span>
                 </button>
               );
             })}
           </div>
-        )}
-      </div>
-    );
-  };
 
-  return (
-    <div className="grid gap-4">
-      {renderGroup('เพิ่มคะแนน', 'ADD', addCategories)}
-      {renderGroup('ลดคะแนน', 'DEDUCT', deductCategories)}
+          {filteredCategories.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-xs font-bold text-gray-400">
+              ไม่พบประเภทคะแนนตามคำค้นหา
+            </div>
+          )}
+
+          {filteredCategories.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => onPageChange(Math.max(1, safePage - 1))}
+                disabled={safePage === 1}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm disabled:opacity-35"
+                aria-label="หน้าก่อนหน้า"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-xs font-black text-gray-600">
+                หน้า {safePage} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPageChange(Math.min(pageCount, safePage + 1))}
+                disabled={safePage === pageCount}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm disabled:opacity-35"
+                aria-label="หน้าถัดไป"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-xs font-bold text-gray-400">
+          เลือกเพิ่มคะแนนหรือ ลดคะแนน ก่อนเลือกรายการ
+        </div>
+      )}
     </div>
   );
 }
@@ -156,9 +292,16 @@ export default function BehaviorManagePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [categories, setCategories] = useState<PointCategory[]>([]);
   const [mode, setMode] = useState<ManageMode>('single');
+  const [bulkStep, setBulkStep] = useState<BulkStep>('students');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [singlePointType, setSinglePointType] = useState<PointType | ''>('');
+  const [bulkPointType, setBulkPointType] = useState<PointType | ''>('');
   const [singleCategoryId, setSingleCategoryId] = useState('');
   const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [singleCategorySearch, setSingleCategorySearch] = useState('');
+  const [bulkCategorySearch, setBulkCategorySearch] = useState('');
+  const [singleCategoryPage, setSingleCategoryPage] = useState(1);
+  const [bulkCategoryPage, setBulkCategoryPage] = useState(1);
   const [singleNote, setSingleNote] = useState('');
   const [bulkNote, setBulkNote] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,7 +321,7 @@ export default function BehaviorManagePage() {
     return categories.filter(category =>
       currentUser.role === 'TEACHER'
         ? category.allowedForTeacher
-        : category.allowedForAffairs
+        : category.allowedForAffairs,
     );
   }, [categories, currentUser]);
 
@@ -283,6 +426,22 @@ export default function BehaviorManagePage() {
     setStudents(studentsRes.data);
   };
 
+  const resetSingleForm = () => {
+    setSinglePointType('');
+    setSingleCategoryId('');
+    setSingleCategorySearch('');
+    setSingleCategoryPage(1);
+    setSingleNote('');
+  };
+
+  const resetBulkForm = () => {
+    setBulkPointType('');
+    setBulkCategoryId('');
+    setBulkCategorySearch('');
+    setBulkCategoryPage(1);
+    setBulkNote('');
+  };
+
   const fetchStudentHistory = async (student: Student) => {
     try {
       setActiveStudent(student);
@@ -306,16 +465,14 @@ export default function BehaviorManagePage() {
       return;
     }
 
-    setSingleCategoryId('');
-    setSingleNote('');
+    resetSingleForm();
     void fetchStudentHistory(student);
   };
 
   const closeStudentForm = () => {
     setActiveStudent(null);
     setHistory([]);
-    setSingleCategoryId('');
-    setSingleNote('');
+    resetSingleForm();
   };
 
   const selectAllFiltered = () => {
@@ -324,16 +481,32 @@ export default function BehaviorManagePage() {
 
   const clearSelected = () => {
     setSelectedStudentIds([]);
+    setBulkStep('students');
+    resetBulkForm();
   };
 
   const handleModeChange = (nextMode: ManageMode) => {
     setMode(nextMode);
+    setBulkStep('students');
     setSelectedStudentIds([]);
+    resetBulkForm();
     closeStudentForm();
+  };
+
+  const goToBulkDetails = () => {
+    if (selectedStudentIds.length === 0) {
+      toast.error('กรุณาเลือกนักเรียนอย่างน้อย 1 คน');
+      return;
+    }
+    setBulkStep('details');
   };
 
   const handleSaveSingle = async () => {
     if (!activeStudent) return;
+    if (!singlePointType) {
+      toast.error('กรุณาเลือกเพิ่มหรือลดคะแนน');
+      return;
+    }
     if (!singleCategoryId) {
       toast.error('กรุณาเลือกประเภทคะแนน');
       return;
@@ -347,8 +520,7 @@ export default function BehaviorManagePage() {
         note: singleNote.trim() || undefined,
       });
       toast.success('บันทึกคะแนนรายคนสำเร็จ');
-      setSingleCategoryId('');
-      setSingleNote('');
+      resetSingleForm();
       await fetchStudentHistory(activeStudent);
       if (isTeacher) await refreshTeacherStudents();
     } catch (error) {
@@ -361,6 +533,10 @@ export default function BehaviorManagePage() {
   const handleSaveBulk = async () => {
     if (selectedStudentIds.length === 0) {
       toast.error('กรุณาเลือกนักเรียนอย่างน้อย 1 คน');
+      return;
+    }
+    if (!bulkPointType) {
+      toast.error('กรุณาเลือกเพิ่มหรือลดคะแนน');
       return;
     }
     if (!bulkCategoryId) {
@@ -376,8 +552,8 @@ export default function BehaviorManagePage() {
         note: bulkNote.trim() || undefined,
       });
       toast.success(`บันทึกคะแนนให้นักเรียน ${selectedStudentIds.length} คนสำเร็จ`);
-      setBulkCategoryId('');
-      setBulkNote('');
+      resetBulkForm();
+      setBulkStep('students');
       setSelectedStudentIds([]);
       if (isTeacher) await refreshTeacherStudents();
     } catch (error) {
@@ -412,9 +588,9 @@ export default function BehaviorManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-primary px-5 pt-10 pb-5 shadow-md lg:px-10 lg:pt-9 lg:pb-8">
-        <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-[#f6f7fb] pb-28">
+      <div className="bg-primary px-4 pb-5 pt-9 shadow-sm lg:px-10">
+        <div className="mx-auto max-w-5xl">
           <button
             type="button"
             onClick={() => navigate('/')}
@@ -423,160 +599,177 @@ export default function BehaviorManagePage() {
             <ChevronLeft size={16} />
             หน้าแรก
           </button>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="flex items-center gap-2 text-xl font-black text-white lg:text-2xl">
-                <ShieldCheck size={24} />
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="flex items-center gap-2 text-xl font-black leading-tight text-white sm:text-2xl">
+                <ShieldCheck size={24} className="shrink-0" />
                 เพิ่ม/ลบ คะแนนพฤติกรรม
               </h1>
-              <p className="mt-1 text-xs font-medium text-primary-light">
+              <p className="mt-1 text-xs font-medium text-white/70">
                 {isTeacher
                   ? `ห้องที่ปรึกษา ${currentUser?.advisingClasses?.[0]?.name ?? ''}`
                   : 'ฝ่ายกิจการนักเรียน'}
               </p>
             </div>
-            <div className="rounded-2xl bg-white/15 px-3 py-2 text-right text-white">
-              <p className="text-[10px] font-bold text-primary-light">โหมด</p>
-              <p className="text-sm font-black">{mode === 'single' ? 'รายคน' : 'หลายคน'}</p>
+            <div className="shrink-0 rounded-2xl bg-white/12 px-3 py-2 text-right text-white">
+              <p className="text-[10px] font-bold text-white/60">เลือกแล้ว</p>
+              <p className="text-sm font-black">{selectedStudentIds.length} คน</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-4 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-10">
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => handleModeChange('single')}
-                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black transition-all ${
-                  mode === 'single' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                <UserRoundCheck size={16} />
-                รายคน
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeChange('bulk')}
-                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black transition-all ${
-                  mode === 'bulk' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                <Users size={16} />
-                หลายคน
-              </button>
+      <div className="mx-auto max-w-5xl px-4 py-4 lg:px-10">
+        <div className="sticky top-0 z-20 -mx-4 bg-[#f6f7fb]/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:px-0 lg:pt-0">
+          <div className="grid grid-cols-2 gap-2 rounded-3xl bg-white p-1.5 shadow-sm ring-1 ring-gray-100">
+            <button
+              type="button"
+              onClick={() => handleModeChange('single')}
+              className={`flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-xs font-black transition-all ${
+                mode === 'single' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-gray-500'
+              }`}
+            >
+              <UserRoundCheck size={17} />
+              รายคน
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange('bulk')}
+              className={`flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-xs font-black transition-all ${
+                mode === 'bulk' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-gray-500'
+              }`}
+            >
+              <Users size={17} />
+              หลายคน
+            </button>
+          </div>
+        </div>
+
+        {mode === 'bulk' && (
+          <div className="mb-4 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <div className={`rounded-2xl px-3 py-2 ${bulkStep === 'students' ? 'bg-primary/10' : 'bg-green-50'}`}>
+                <p className={`text-[10px] font-black ${bulkStep === 'students' ? 'text-primary' : 'text-green-700'}`}>ขั้นตอน 1</p>
+                <p className="text-xs font-black text-gray-800">เลือกนักเรียน</p>
+              </div>
+              <ChevronRight size={18} className="text-gray-300" />
+              <div className={`rounded-2xl px-3 py-2 ${bulkStep === 'details' ? 'bg-primary/10' : 'bg-gray-50'}`}>
+                <p className={`text-[10px] font-black ${bulkStep === 'details' ? 'text-primary' : 'text-gray-400'}`}>ขั้นตอน 2</p>
+                <p className="text-xs font-black text-gray-800">เลือกคะแนน</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(mode === 'single' || bulkStep === 'students') && (
+          <section className="space-y-4">
+            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder={isAffairs ? 'ค้นหาชื่อ/รหัสนักเรียน...' : 'ค้นหาในห้องที่ปรึกษา...'}
+                  className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="text-xs font-black text-gray-500">
+                  รายชื่อนักเรียน {filteredStudents.length} คน
+                </p>
+                {mode === 'bulk' && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={selectAllFiltered}
+                      disabled={filteredStudents.length === 0}
+                      className="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-black text-primary disabled:opacity-40"
+                    >
+                      เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelected}
+                      disabled={selectedStudentIds.length === 0}
+                      className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-500 disabled:opacity-40"
+                    >
+                      ล้าง
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={event => setSearchQuery(event.target.value)}
-                placeholder={isAffairs ? 'ค้นหาชื่อ/รหัสนักเรียน...' : 'ค้นหาในห้องที่ปรึกษา...'}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {filteredStudents.map(student => {
+                const selected = selectedStudentIds.includes(student.id);
+                return (
+                  <button
+                    type="button"
+                    key={student.id}
+                    onClick={() => openStudentForm(student)}
+                    className={`w-full rounded-3xl border bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.98] ${
+                      selected ? 'border-primary ring-2 ring-primary/10' : 'border-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-black leading-5 text-gray-800">{formatStudentName(student)}</p>
+                        <p className="mt-1 font-mono text-[10px] text-gray-400">รหัส: {student.citizenId}</p>
+                        <p className="mt-1 text-[10px] font-bold text-gray-500">{student.classroom?.name ?? '-'}</p>
+                      </div>
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                        mode === 'bulk'
+                          ? selected ? 'bg-primary text-white' : 'bg-gray-100 text-gray-300'
+                          : 'bg-primary/10 text-primary'
+                      }`}>
+                        {mode === 'bulk'
+                          ? selected ? <CheckSquare size={18} /> : <Square size={18} />
+                          : <ChevronRight size={18} />}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
 
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <p className="text-xs font-bold text-gray-500">
-                รายชื่อนักเรียน {filteredStudents.length} คน
-              </p>
-              {mode === 'bulk' && (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={selectAllFiltered}
-                    disabled={filteredStudents.length === 0}
-                    className="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
-                  >
-                    เลือกทั้งหมด
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearSelected}
-                    disabled={selectedStudentIds.length === 0}
-                    className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-500 disabled:opacity-40"
-                  >
-                    ล้าง
-                  </button>
+              {filteredStudents.length === 0 && (
+                <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm font-bold text-gray-400 sm:col-span-2">
+                  ไม่พบนักเรียนตามคำค้นหา
                 </div>
               )}
             </div>
-          </div>
+          </section>
+        )}
 
-          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
-            {filteredStudents.map(student => {
-              const selected = selectedStudentIds.includes(student.id);
-              return (
+        {mode === 'bulk' && bulkStep === 'details' && (
+          <section className="space-y-4">
+            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-gray-800">นักเรียนที่เลือก</p>
+                  <p className="mt-1 text-xs font-bold text-gray-500">{selectedStudentIds.length} คน</p>
+                </div>
                 <button
                   type="button"
-                  key={student.id}
-                  onClick={() => openStudentForm(student)}
-                  className={`w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.98] ${
-                    selected ? 'border-primary ring-2 ring-primary/10' : 'border-gray-100'
-                  }`}
+                  onClick={() => setBulkStep('students')}
+                  className="rounded-2xl bg-gray-100 px-3 py-2 text-xs font-black text-gray-600 active:scale-95"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-gray-800">{formatStudentName(student)}</p>
-                      <p className="mt-1 font-mono text-[10px] text-gray-400">รหัส: {student.citizenId}</p>
-                      <p className="mt-1 text-[10px] font-bold text-gray-500">{student.classroom?.name ?? '-'}</p>
-                    </div>
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                      mode === 'bulk'
-                        ? selected ? 'bg-primary text-white' : 'bg-gray-100 text-gray-300'
-                        : 'bg-primary/10 text-primary'
-                    }`}>
-                      {mode === 'bulk'
-                        ? selected ? <CheckSquare size={17} /> : <Square size={17} />
-                        : <PlusCircle size={17} />}
-                    </div>
-                  </div>
+                  กลับไปเลือก
                 </button>
-              );
-            })} 
-
-            {filteredStudents.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm font-medium text-gray-400 lg:col-span-2">
-                ไม่พบนักเรียนตามคำค้นหา
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-black text-gray-800">
-              {mode === 'single' ? 'บันทึกแบบรายคน' : 'บันทึกแบบหลายคน'}
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
-              {mode === 'single'
-                ? 'แตะชื่อนักเรียนเพื่อเปิดฟอร์มเพิ่มหรือลดคะแนน'
-                : `เลือกนักเรียนแล้วบันทึกคะแนนพร้อมกัน ตอนนี้เลือก ${selectedStudentIds.length} คน`}
-            </p>
-          </div>
-
-          {mode === 'bulk' && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-black text-gray-800">รายการหลายคน</h3>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-                  {selectedStudentIds.length} คน
-                </span>
               </div>
 
               {selectedStudents.length > 0 && (
-                <div className="mb-4 max-h-28 space-y-1.5 overflow-y-auto rounded-xl bg-gray-50 p-2">
+                <div className="mt-3 max-h-40 space-y-2 overflow-y-auto rounded-2xl bg-gray-50 p-2">
                   {selectedStudents.map(student => (
-                    <div key={student.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-2 py-1.5">
-                      <span className="truncate text-[11px] font-bold text-gray-700">{formatStudentName(student)}</span>
+                    <div key={student.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
+                      <span className="min-w-0 break-words text-xs font-bold leading-4 text-gray-700">{formatStudentName(student)}</span>
                       <button
                         type="button"
                         onClick={() => setSelectedStudentIds(prev => prev.filter(id => id !== student.id))}
-                        className="text-gray-300 hover:text-red-500"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-300 hover:text-red-500"
                         aria-label="เอานักเรียนออกจากรายการ"
                       >
                         <X size={14} />
@@ -585,17 +778,25 @@ export default function BehaviorManagePage() {
                   ))}
                 </div>
               )}
+            </div>
 
+            <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
               {allowedCategories.length === 0 ? (
-                <div className="flex gap-2 rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-700">
+                <div className="flex gap-2 rounded-2xl bg-amber-50 p-3 text-xs font-medium text-amber-700">
                   <AlertCircle size={16} className="shrink-0" />
                   ยังไม่มีประเภทคะแนนที่ role นี้ได้รับอนุญาต
                 </div>
               ) : (
                 <CategoryPicker
                   categories={allowedCategories}
+                  selectedPointType={bulkPointType}
                   selectedCategoryId={bulkCategoryId}
+                  searchQuery={bulkCategorySearch}
+                  page={bulkCategoryPage}
+                  onSelectPointType={setBulkPointType}
                   onSelectCategory={setBulkCategoryId}
+                  onSearchChange={setBulkCategorySearch}
+                  onPageChange={setBulkCategoryPage}
                 />
               )}
 
@@ -607,22 +808,36 @@ export default function BehaviorManagePage() {
                 onChange={event => setBulkNote(event.target.value)}
                 rows={3}
                 placeholder="รายละเอียดเพิ่มเติม..."
-                className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full resize-none rounded-2xl border border-gray-200 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
               />
 
               <button
                 type="button"
                 onClick={handleSaveBulk}
-                disabled={savingBulk || selectedStudentIds.length === 0 || !bulkCategoryId}
+                disabled={savingBulk || selectedStudentIds.length === 0 || !bulkPointType || !bulkCategoryId}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingBulk ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                 บันทึกหลายคน
               </button>
             </div>
-          )}
-        </aside>
+          </section>
+        )}
       </div>
+
+      {mode === 'bulk' && bulkStep === 'students' && (
+        <div className="fixed inset-x-0 bottom-[72px] z-30 mx-auto max-w-md px-4 pb-3 lg:bottom-4 lg:left-64 lg:max-w-sm">
+          <button
+            type="button"
+            onClick={goToBulkDetails}
+            disabled={selectedStudentIds.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 text-sm font-black text-white shadow-xl shadow-primary/25 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            ถัดไป {selectedStudentIds.length > 0 ? `(${selectedStudentIds.length} คน)` : ''}
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
 
       <Transition appear show={Boolean(activeStudent)} as={Fragment}>
         <Dialog as="div" className="relative z-[100]" onClose={closeStudentForm}>
@@ -649,10 +864,10 @@ export default function BehaviorManagePage() {
                 leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                 leaveTo="opacity-0 translate-y-6 sm:scale-95"
               >
-                <Dialog.Panel className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-t-[28px] bg-gray-50 text-left shadow-2xl sm:rounded-[28px]">
+                <Dialog.Panel className="max-h-[94vh] w-full max-w-2xl overflow-hidden rounded-t-[30px] bg-[#f6f7fb] text-left shadow-2xl sm:rounded-[30px]">
                   <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-white px-5 py-4">
                     <div className="min-w-0">
-                      <Dialog.Title className="truncate text-lg font-black text-gray-800">
+                      <Dialog.Title className="break-words text-lg font-black leading-6 text-gray-800">
                         {activeStudent ? formatStudentName(activeStudent) : 'บันทึกคะแนน'}
                       </Dialog.Title>
                       <p className="mt-1 text-xs font-medium text-gray-500">
@@ -669,21 +884,25 @@ export default function BehaviorManagePage() {
                     </button>
                   </div>
 
-                  <div className="max-h-[calc(92vh-74px)] overflow-y-auto p-5">
-                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                        <h3 className="mb-4 text-sm font-black text-gray-800">เลือกประเภทคะแนน</h3>
-
+                  <div className="max-h-[calc(94vh-74px)] overflow-y-auto p-4 sm:p-5">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                         {allowedCategories.length === 0 ? (
-                          <div className="flex gap-2 rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-700">
+                          <div className="flex gap-2 rounded-2xl bg-amber-50 p-3 text-xs font-medium text-amber-700">
                             <AlertCircle size={16} className="shrink-0" />
                             ยังไม่มีประเภทคะแนนที่ role นี้ได้รับอนุญาต
                           </div>
                         ) : (
                           <CategoryPicker
                             categories={allowedCategories}
+                            selectedPointType={singlePointType}
                             selectedCategoryId={singleCategoryId}
+                            searchQuery={singleCategorySearch}
+                            page={singleCategoryPage}
+                            onSelectPointType={setSinglePointType}
                             onSelectCategory={setSingleCategoryId}
+                            onSearchChange={setSingleCategorySearch}
+                            onPageChange={setSingleCategoryPage}
                           />
                         )}
 
@@ -695,13 +914,13 @@ export default function BehaviorManagePage() {
                           onChange={event => setSingleNote(event.target.value)}
                           rows={3}
                           placeholder="รายละเอียดเพิ่มเติม..."
-                          className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full resize-none rounded-2xl border border-gray-200 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                         />
 
                         <button
                           type="button"
                           onClick={handleSaveSingle}
-                          disabled={savingSingle || !singleCategoryId}
+                          disabled={savingSingle || !singlePointType || !singleCategoryId}
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {savingSingle ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -709,7 +928,7 @@ export default function BehaviorManagePage() {
                         </button>
                       </div>
 
-                      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                      <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                         <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-gray-800">
                           <History size={17} className="text-primary" />
                           ประวัติคะแนน
@@ -720,7 +939,7 @@ export default function BehaviorManagePage() {
                             <Loader2 className="animate-spin text-primary" size={24} />
                           </div>
                         ) : history.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs font-medium text-gray-400">
+                          <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-xs font-medium text-gray-400">
                             ยังไม่มีประวัติคะแนน
                           </div>
                         ) : (
@@ -728,15 +947,15 @@ export default function BehaviorManagePage() {
                             {history.map(record => {
                               const isAdd = record.category?.type === 'ADD';
                               return (
-                                <div key={record.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                <div key={record.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
-                                      <p className="text-xs font-black text-gray-800">
+                                      <p className="break-words text-xs font-black leading-5 text-gray-800">
                                         {record.category?.name ?? 'บันทึกคะแนน'}
                                       </p>
                                       <p className="mt-1 text-[10px] text-gray-400">{formatDateTime(record.createdAt)}</p>
                                       {record.note && (
-                                        <p className="mt-2 rounded-lg bg-white p-2 text-[10px] leading-relaxed text-gray-500">
+                                        <p className="mt-2 rounded-xl bg-white p-2 text-[10px] leading-relaxed text-gray-500">
                                           {record.note}
                                         </p>
                                       )}
