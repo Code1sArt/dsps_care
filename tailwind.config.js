@@ -6,6 +6,17 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          '"Noto Sans Thai"',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'sans-serif',
+        ],
+      },
       colors: {
         primary: {
           DEFAULT: '#006400',
