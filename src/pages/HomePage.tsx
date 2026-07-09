@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     User, ClipboardList, ShieldCheck, History,
-    Users, BarChart3, Newspaper, BellRing, ChevronRight,
+    Users, BarChart3, BellRing, ChevronRight,
     CheckCircle, XCircle, Medal, Trophy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -66,7 +66,9 @@ export default function HomePage() {
         { label: 'โปรไฟล์', icon: User, path: '/profile', color: 'bg-accent-soft text-primary', available: true },
         { label: 'คะแนนพฤติกรรม', icon: ShieldCheck, path: '/behavior', color: 'bg-primary/10 text-primary', available: true },
         { label: 'ประวัติเช็คชื่อ', icon: History, path: '/history', color: 'bg-primary/10 text-primary', available: true },
-        { label: 'ประกาศ/ข่าว', icon: Newspaper, path: '/news', color: 'bg-accent-soft text-primary', available: false },
+        ...((user?.role === 'TEACHER' || user?.role === 'AFFAIRS')
+            ? [{ label: 'เพิ่ม/ลบ คะแนนพฤติกรรม', icon: ClipboardList, path: '/behavior-manage', color: 'bg-accent-soft text-primary', available: true }]
+            : []),
     ];
 
     // เมนูเพิ่มเติมสำหรับคุณครู
@@ -196,7 +198,7 @@ export default function HomePage() {
                                 <div className={`w-14 h-14 lg:w-16 lg:h-16 ${menu.color} rounded-2xl flex items-center justify-center shadow-sm`}>
                                     <menu.icon size={24} strokeWidth={2.5} />
                                 </div>
-                                <span className="text-[10px] font-bold text-gray-600 text-center leading-tight whitespace-nowrap">
+                                <span className="text-[10px] font-bold text-gray-600 text-center leading-tight">
                                     {menu.label}
                                 </span>
                             </button>
