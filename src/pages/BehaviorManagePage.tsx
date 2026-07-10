@@ -46,6 +46,13 @@ interface Student {
   classroom?: { id?: number; name: string };
 }
 
+interface Classroom {
+  id: number;
+  name: string;
+  term?: { id: number; term: number; year: number };
+  _count?: { students: number };
+}
+
 interface PointCategory {
   id: number;
   name: string;
@@ -65,6 +72,7 @@ interface BehaviorRecord {
     type: PointType;
   } | null;
   recorder?: {
+    id: string;
     firstName: string;
     lastName: string;
     role?: UserRole;
@@ -290,6 +298,8 @@ export default function BehaviorManagePage() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [selectedClassroomId, setSelectedClassroomId] = useState('');
   const [categories, setCategories] = useState<PointCategory[]>([]);
   const [mode, setMode] = useState<ManageMode>('single');
   const [bulkStep, setBulkStep] = useState<BulkStep>('students');
@@ -344,13 +354,19 @@ export default function BehaviorManagePage() {
     [selectedStudentIds, students],
   );
 
+  const selectedClassroom = useMemo(
+    () => classrooms.find(classroom => String(classroom.id) === selectedClassroomId),
+    [classrooms, selectedClassroomId],
+  );
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const [userRes, categoriesRes] = await Promise.all([
+        const [userRes, categoriesRes, classroomsRes] = await Promise.all([
           api.get<CurrentUser>('/users/me'),
           api.get<PointCategory[]>('/point-categories'),
+          api.get<Classroom[]>('/classrooms'),
         ]);
 
         const user = userRes.data;
@@ -362,15 +378,17 @@ export default function BehaviorManagePage() {
 
         setCurrentUser(user);
         setCategories(categoriesRes.data);
+        setClassrooms(classroomsRes.data);
 
         if (user.role === 'TEACHER') {
-          const classroomId = user.advisingClasses?.[0]?.id;
+          const classroomId = user.advisingClasses?.[0]?.id ?? classroomsRes.data[0]?.id;
           if (!classroomId) {
-            toast.error('ไม่พบห้องเรียนที่ปรึกษา');
+            toast.error('ไม่พบห้องเรียน');
             navigate('/');
             return;
           }
 
+          setSelectedClassroomId(String(classroomId));
           const studentsRes = await api.get<Student[]>('/students', {
             params: { classroomId },
           });
@@ -391,6 +409,45 @@ export default function BehaviorManagePage() {
 
     void fetchInitialData();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!isTeacher || !selectedClassroomId) return;
+
+    const controller = new AbortController();
+    const fetchStudentsByClassroom = async () => {
+      try {
+        const studentsRes = await api.get<Student[]>('/students', {
+          params: { classroomId: selectedClassroomId },
+          signal: controller.signal,
+        });
+        setStudents(studentsRes.data);
+        setSelectedStudentIds([]);
+        setBulkStep('students');
+        setBulkPointType('');
+        setBulkCategoryId('');
+        setBulkCategorySearch('');
+        setBulkCategoryPage(1);
+        setBulkNote('');
+        setActiveStudent(null);
+        setHistory([]);
+        setSinglePointType('');
+        setSingleCategoryId('');
+        setSingleCategorySearch('');
+        setSingleCategoryPage(1);
+        setSingleNote('');
+      } catch {
+        if (!controller.signal.aborted) {
+          toast.error('โหลดรายชื่อนักเรียนของห้องนี้ไม่สำเร็จ');
+        }
+      }
+    };
+
+    void fetchStudentsByClassroom();
+
+    return () => {
+      controller.abort();
+    };
+  }, [isTeacher, selectedClassroomId]);
 
   useEffect(() => {
     if (!isAffairs) return;
@@ -418,7 +475,7 @@ export default function BehaviorManagePage() {
   }, [isAffairs, searchQuery]);
 
   const refreshTeacherStudents = async () => {
-    const classroomId = currentUser?.advisingClasses?.[0]?.id;
+    const classroomId = selectedClassroomId;
     if (!classroomId) return;
     const studentsRes = await api.get<Student[]>('/students', {
       params: { classroomId },
@@ -426,21 +483,21 @@ export default function BehaviorManagePage() {
     setStudents(studentsRes.data);
   };
 
-  const resetSingleForm = () => {
+  function resetSingleForm() {
     setSinglePointType('');
     setSingleCategoryId('');
     setSingleCategorySearch('');
     setSingleCategoryPage(1);
     setSingleNote('');
-  };
+  }
 
-  const resetBulkForm = () => {
+  function resetBulkForm() {
     setBulkPointType('');
     setBulkCategoryId('');
     setBulkCategorySearch('');
     setBulkCategoryPage(1);
     setBulkNote('');
-  };
+  }
 
   const fetchStudentHistory = async (student: Student) => {
     try {
@@ -469,11 +526,11 @@ export default function BehaviorManagePage() {
     void fetchStudentHistory(student);
   };
 
-  const closeStudentForm = () => {
+  function closeStudentForm() {
     setActiveStudent(null);
     setHistory([]);
     resetSingleForm();
-  };
+  }
 
   const selectAllFiltered = () => {
     setSelectedStudentIds(filteredStudents.map(student => student.id));
@@ -608,7 +665,9 @@ export default function BehaviorManagePage() {
               </h1>
               <p className="mt-1 text-xs font-medium text-white/70">
                 {isTeacher
-                  ? `ห้องที่ปรึกษา ${currentUser?.advisingClasses?.[0]?.name ?? ''}`
+                  ? selectedClassroom
+                    ? `กำลังจัดการห้อง ${selectedClassroom.name}`
+                    : 'เลือกห้องเรียนที่ต้องการจัดการ'
                   : 'ฝ่ายกิจการนักเรียน'}
               </p>
             </div>
@@ -646,6 +705,30 @@ export default function BehaviorManagePage() {
           </div>
         </div>
 
+        {isTeacher && (
+          <div className="mb-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+            <label className="mb-2 block text-[10px] font-black uppercase tracking-wider text-gray-400">
+              เลือกห้องเรียน
+            </label>
+            <select
+              value={selectedClassroomId}
+              onChange={event => setSelectedClassroomId(event.target.value)}
+              className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {classrooms.map(classroom => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                  {classroom.term ? ` · ${classroom.term.term}/${classroom.term.year}` : ''}
+                  {classroom._count ? ` · ${classroom._count.students} คน` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-[11px] font-medium leading-relaxed text-gray-500">
+              ครูสามารถบันทึกเพิ่ม/ลบคะแนนให้ห้องอื่นได้ โดยยังใช้ประเภทคะแนนที่อนุญาตสำหรับครูเหมือนเดิม
+            </p>
+          </div>
+        )}
+
         {mode === 'bulk' && (
           <div className="mb-4 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -671,7 +754,7 @@ export default function BehaviorManagePage() {
                   type="text"
                   value={searchQuery}
                   onChange={event => setSearchQuery(event.target.value)}
-                  placeholder={isAffairs ? 'ค้นหาชื่อ/รหัสนักเรียน...' : 'ค้นหาในห้องที่ปรึกษา...'}
+                  placeholder={isAffairs ? 'ค้นหาชื่อ/รหัสนักเรียน...' : 'ค้นหาในห้องที่เลือก...'}
                   className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -946,6 +1029,7 @@ export default function BehaviorManagePage() {
                           <div className="max-h-[430px] space-y-2 overflow-y-auto pr-1">
                             {history.map(record => {
                               const isAdd = record.category?.type === 'ADD';
+                              const canDelete = record.recorder?.id === currentUser?.id;
                               return (
                                 <div key={record.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
                                   <div className="flex items-start justify-between gap-2">
@@ -954,6 +1038,11 @@ export default function BehaviorManagePage() {
                                         {record.category?.name ?? 'บันทึกคะแนน'}
                                       </p>
                                       <p className="mt-1 text-[10px] text-gray-400">{formatDateTime(record.createdAt)}</p>
+                                      {record.recorder && (
+                                        <p className="mt-1 text-[10px] font-medium text-gray-400">
+                                          บันทึกโดย {record.recorder.firstName} {record.recorder.lastName}
+                                        </p>
+                                      )}
                                       {record.note && (
                                         <p className="mt-2 rounded-xl bg-white p-2 text-[10px] leading-relaxed text-gray-500">
                                           {record.note}
@@ -964,17 +1053,19 @@ export default function BehaviorManagePage() {
                                       <p className={`text-sm font-black ${isAdd ? 'text-green-600' : 'text-red-600'}`}>
                                         {isAdd ? '+' : '-'}{record.points}
                                       </p>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDelete(record.id)}
-                                        disabled={deletingId === record.id}
-                                        className="mt-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow-sm disabled:opacity-40"
-                                        aria-label="ลบรายการคะแนน"
-                                      >
-                                        {deletingId === record.id
-                                          ? <Loader2 size={15} className="animate-spin" />
-                                          : <Trash2 size={15} />}
-                                      </button>
+                                      {canDelete && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDelete(record.id)}
+                                          disabled={deletingId === record.id}
+                                          className="mt-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow-sm disabled:opacity-40"
+                                          aria-label="ลบรายการคะแนน"
+                                        >
+                                          {deletingId === record.id
+                                            ? <Loader2 size={15} className="animate-spin" />
+                                            : <Trash2 size={15} />}
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
