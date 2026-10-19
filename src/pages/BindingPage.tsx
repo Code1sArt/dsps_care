@@ -1,9 +1,9 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState } from 'react';
+import liff from '@line/liff';
 import {
     User, Lock, Eye, EyeOff, LogIn,
-    UserPlus, ChevronsUpDown, Check, ArrowLeft
+    UserPlus, ArrowLeft
 } from 'lucide-react';
-import { Combobox, Transition } from '@headlessui/react';
 import { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import { api } from '../lib/api';
@@ -11,13 +11,6 @@ import { api } from '../lib/api';
 interface BindingPageProps {
     lineUserId: string;
     onBindSuccess: (token: string, user: unknown) => void;
-}
-
-interface Student {
-    id: string;
-    firstName: string;
-    lastName: string;
-    citizenId: string;
 }
 
 export default function BindingPage({ lineUserId, onBindSuccess }: BindingPageProps) {
@@ -39,40 +32,8 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
     });
     const [showRegPassword, setShowRegPassword] = useState(false);
 
-    // State สำหรับค้นหานักเรียน (Combobox)
-    const [students, setStudents] = useState<Student[]>([]);
-    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-    const [studentQuery, setStudentQuery] = useState('');
-    const [studentsLoading, setStudentsLoading] = useState(false);
-
-    // โหลด 30 คนแรกเมื่อเปิดรายการ และค้นหาจาก API เมื่อผู้ใช้พิมพ์
-    useEffect(() => {
-        if (!isRegisterMode) return;
-
-        const controller = new AbortController();
-        const timer = window.setTimeout(async () => {
-            try {
-                setStudentsLoading(true);
-                const res = await api.get<Student[]>('/students/search', {
-                    params: { q: studentQuery.trim(), limit: 30 },
-                    signal: controller.signal,
-                });
-                setStudents(res.data);
-            } catch {
-                if (!controller.signal.aborted) {
-                    setStudents([]);
-                    toast.error('ไม่สามารถโหลดรายชื่อนักเรียนได้');
-                }
-            } finally {
-                if (!controller.signal.aborted) setStudentsLoading(false);
-            }
-        }, studentQuery ? 300 : 0);
-
-        return () => {
-            window.clearTimeout(timer);
-            controller.abort();
-        };
-    }, [isRegisterMode, studentQuery]);
+    const [studentCitizenId, setStudentCitizenId] = useState('');
+    const [invitationCode, setInvitationCode] = useState('');
 
     // ==========================================
     // ฟังก์ชัน: ยืนยันการผูกบัญชี (เข้าสู่ระบบ)
@@ -86,7 +47,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
 
         try {
             const res = await api.post('/auth/bind-line', {
-                citizenId, password, lineUserId
+                citizenId, password, lineUserId, accessToken: liff.getAccessToken()
             });
             toast.success('เชื่อมต่อบัญชีสำเร็จ!', { id: toastId });
             onBindSuccess(res.data.access_token, res.data.user);
@@ -103,7 +64,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
     // ==========================================
     const handleRegisterParent = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedStudent) return toast.error('กรุณาเลือกนักเรียนในความดูแล');
+        if (!studentCitizenId.trim() || !invitationCode.trim()) return toast.error('กรุณากรอกรหัสนักเรียนและรหัสเชื่อมโยงจากโรงเรียน');
         if (regForm.citizenId.length !== 13) return toast.error('รหัสประชาชนต้องมี 13 หลัก');
 
         setLoading(true);
@@ -112,7 +73,9 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
         try {
             await api.post('/parents/register', {
                 ...regForm,
-                studentCitizenId: selectedStudent.citizenId,
+                studentCitizenId: studentCitizenId.trim(),
+                invitationCode: invitationCode.trim(),
+                accessToken: liff.getAccessToken(),
                 lineUserId: lineUserId // ส่ง LINE ID ไปผูกตอนลงทะเบียนเลย
             });
 
@@ -120,7 +83,8 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
 
             // ล้างค่าและสลับกลับไปหน้า Login
             setRegForm({ citizenId: '', firstName: '', lastName: '', password: '' });
-            setSelectedStudent(null);
+            setStudentCitizenId('');
+            setInvitationCode('');
             setIsRegisterMode(false);
 
             // เติมรหัสประชาชนให้ในช่อง Login เพื่อความสะดวก
@@ -241,44 +205,13 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
                             </div>
                         </div>
 
-                        <div className="space-y-1 relative z-50">
-                            <label className="text-xs font-bold text-gray-700 ml-1">นักเรียนในความดูแล</label>
-                            <Combobox value={selectedStudent} onChange={setSelectedStudent}>
-                                <div className="relative w-full">
-                                    <Combobox.Input
-                                        required
-                                        className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-                                        displayValue={(student: Student) => student ? `${student.firstName} ${student.lastName}` : ''}
-                                        onChange={(e) => setStudentQuery(e.target.value)}
-                                        placeholder="พิมพ์ชื่อเพื่อค้นหานักเรียน..."
-                                    />
-                                    <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-3">
-                                        <ChevronsUpDown size={16} className="text-gray-400" aria-hidden="true" />
-                                    </Combobox.Button>
-                                </div>
-                                <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0" afterLeave={() => setStudentQuery('')}>
-                                    <Combobox.Options className="absolute mt-1 max-h-48 w-full overflow-auto rounded-xl bg-white py-1 text-sm shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-100">
-                                        {studentsLoading ? (
-                                            <div className="relative cursor-default select-none py-3 px-4 text-gray-500 text-xs">
-                                                กำลังโหลดรายชื่อนักเรียน...
-                                            </div>
-                                        ) : students.length === 0 ? (
-                                            <div className="relative cursor-default select-none py-2 px-4 text-gray-500 text-xs">ไม่พบข้อมูลนักเรียน</div>
-                                        ) : (
-                                            students.map((student) => (
-                                                <Combobox.Option key={student.id} className={({ active }) => `relative cursor-default select-none py-2.5 pl-10 pr-4 ${active ? 'bg-primary/10 text-primary' : 'text-gray-700'}`} value={student}>
-                                                    {({ selected, active }) => (
-                                                        <>
-                                                            <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>{student.firstName} {student.lastName} <span className="text-[10px] text-gray-400">({student.citizenId})</span></span>
-                                                            {selected ? <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? 'text-primary' : 'text-primary'}`}><Check size={16} /></span> : null}
-                                                        </>
-                                                    )}
-                                                </Combobox.Option>
-                                            ))
-                                        )}
-                                    </Combobox.Options>
-                                </Transition>
-                            </Combobox>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสนักเรียนในความดูแล</label>
+                            <input required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl" value={studentCitizenId} onChange={e => setStudentCitizenId(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสเชื่อมโยงที่ได้รับจากโรงเรียน</label>
+                            <input required autoComplete="off" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} />
                         </div>
 
                         <div className="space-y-1 relative z-0">

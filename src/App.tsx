@@ -57,7 +57,7 @@ export default function App() {
 
           // ส่ง userId ไปเช็คกับ Backend ทันที
           try {
-            const res = await api.post('/auth/line-login', { lineUserId: profile.userId });
+            const res = await api.post('/auth/line-login', { lineUserId: profile.userId, accessToken: liff.getAccessToken() });
 
             if (res.data.requires_binding) {
               // ยังไม่เคยผูกบัญชี เด้งไปหน้าให้กรอกรหัสผ่าน
