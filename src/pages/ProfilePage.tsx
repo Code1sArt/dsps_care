@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import liff from '@line/liff';
 import toast from 'react-hot-toast';
 import {
-    User, Shield, Lock, LogOut, Edit2,
-    Check, X, Camera, KeyRound
+    User, Shield, Lock, LogOut, Camera, KeyRound
 } from 'lucide-react';
 import { Dialog, Transition } from '@headlessui/react';
 import { api } from '../lib/api';
@@ -16,10 +15,6 @@ export default function ProfilePage() {
     const [userData, setUserData] = useState<any>(null);
     const [lineAvatar, setLineAvatar] = useState<string>('');
     const [loading, setLoading] = useState(true);
-
-    // States สำหรับการแก้ไขข้อมูลส่วนตัว
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [editForm, setEditForm] = useState({ firstName: '', lastName: '' });
 
     // States สำหรับการเปลี่ยนรหัสผ่าน
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -45,51 +40,10 @@ export default function ProfilePage() {
             // 2. ดึงข้อมูลส่วนตัวจาก Backend (/users/me)
             const res = await api.get('/users/me');
             setUserData(res.data);
-            setEditForm({
-                firstName: res.data.firstName,
-                lastName: res.data.lastName
-            });
         } catch (error) {
             toast.error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleUpdateProfile = async () => {
-        const profileData = {
-            firstName: editForm.firstName.trim(),
-            lastName: editForm.lastName.trim()
-        };
-
-        if (!profileData.firstName || !profileData.lastName) return toast.error('กรุณากรอกข้อมูลให้ครบ');
-        if (!userData?.id) return toast.error('ไม่พบรหัสผู้ใช้งาน');
-
-        const toastId = toast.loading('กำลังบันทึกข้อมูล...');
-
-        try {
-            const res = await api.patch(`/users/${userData.id}`, profileData);
-            const updatedUser = res.data.user;
-
-            setUserData(updatedUser);
-            setEditForm({
-                firstName: updatedUser.firstName,
-                lastName: updatedUser.lastName
-            });
-            setIsEditingProfile(false);
-
-            // อัปเดตข้อมูลใน LocalStorage ด้วย
-            const storedUser = JSON.parse(localStorage.getItem('user_data') || '{}');
-            localStorage.setItem('user_data', JSON.stringify({
-                ...storedUser,
-                firstName: updatedUser.firstName,
-                lastName: updatedUser.lastName
-            }));
-
-            toast.success('บันทึกข้อมูลสำเร็จ', { id: toastId });
-        } catch (error: any) {
-            const message = error.response?.data?.message || 'ไม่สามารถบันทึกข้อมูลได้';
-            toast.error(Array.isArray(message) ? message[0] : message, { id: toastId });
         }
     };
 
@@ -180,16 +134,6 @@ export default function ProfilePage() {
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <User size={18} className="text-primary" /> ข้อมูลส่วนตัว
                         </h3>
-                        {!isEditingProfile ? (
-                            <button onClick={() => setIsEditingProfile(true)} className="p-2 text-gray-400 hover:text-primary transition-colors bg-gray-50 rounded-xl">
-                                <Edit2 size={16} />
-                            </button>
-                        ) : (
-                            <div className="flex gap-2">
-                                <button onClick={() => setIsEditingProfile(false)} className="p-2 text-red-500 bg-red-50 rounded-xl"><X size={16} /></button>
-                                <button onClick={handleUpdateProfile} className="p-2 text-green-600 bg-green-50 rounded-xl"><Check size={16} /></button>
-                            </div>
-                        )}
                     </div>
 
                     <div className="space-y-3">
@@ -200,23 +144,21 @@ export default function ProfilePage() {
 
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs text-gray-500 font-medium">ชื่อ</label>
+                                <label className="text-xs text-gray-500 font-medium">ชื่อ (แก้ไขไม่ได้)</label>
                                 <input
                                     type="text"
-                                    disabled={!isEditingProfile}
-                                    value={isEditingProfile ? editForm.firstName : userData?.firstName}
-                                    onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
-                                    className={`w-full mt-1 px-3 py-2 rounded-xl text-sm transition-all ${isEditingProfile ? 'bg-white border border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-gray-800' : 'bg-gray-50 border-none text-gray-600'}`}
+                                    disabled
+                                    value={userData?.firstName ?? ''}
+                                    className="w-full mt-1 px-3 py-2 rounded-xl text-sm bg-gray-50 border-none text-gray-600"
                                 />
                             </div>
                             <div>
-                                <label className="text-xs text-gray-500 font-medium">นามสกุล</label>
+                                <label className="text-xs text-gray-500 font-medium">นามสกุล (แก้ไขไม่ได้)</label>
                                 <input
                                     type="text"
-                                    disabled={!isEditingProfile}
-                                    value={isEditingProfile ? editForm.lastName : userData?.lastName}
-                                    onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
-                                    className={`w-full mt-1 px-3 py-2 rounded-xl text-sm transition-all ${isEditingProfile ? 'bg-white border border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none text-gray-800' : 'bg-gray-50 border-none text-gray-600'}`}
+                                    disabled
+                                    value={userData?.lastName ?? ''}
+                                    className="w-full mt-1 px-3 py-2 rounded-xl text-sm bg-gray-50 border-none text-gray-600"
                                 />
                             </div>
                         </div>
