@@ -5,6 +5,8 @@ import { Dialog, Transition } from '@headlessui/react';
 import { AxiosError } from 'axios';
 import { api } from '../lib/api';
 import { sortStudents } from '../lib/studentSort';
+import { currentAdvisingClasses } from '../lib/advisingClasses';
+import type { AdvisingClassroom } from '../lib/advisingClasses';
 import type { LucideIcon } from 'lucide-react';
 import {
   ClipboardList, CheckCircle2, XCircle, Clock,
@@ -24,7 +26,7 @@ interface CurrentUser {
   id: string;
   firstName: string;
   lastName: string;
-  advisingClasses?: Array<{ id: number; name: string }>;
+  advisingClasses?: AdvisingClassroom[];
 }
 
 interface AttendanceRecord {
@@ -82,15 +84,19 @@ export default function AttendancePage() {
       const userRes = await api.get('/users/me');
       setCurrentUser(userRes.data);
 
-      if (!userRes.data.advisingClasses || userRes.data.advisingClasses.length === 0) {
-        toast.error('คุณไม่มีห้องเรียนประจำชั้น');
+      const classrooms = currentAdvisingClasses(userRes.data.advisingClasses);
+      if (classrooms.length === 0) {
+        setClassroomId(null);
+        setStudents([]);
+        setRecords({});
+        toast.error('ไม่พบห้องเรียนที่ปรึกษาในภาคเรียนปัจจุบัน กรุณาให้ผู้ดูแลตรวจสอบภาคเรียนและการกำหนดครูที่ปรึกษา', { duration: 6000 });
         navigate('/');
         return;
       }
 
-      const advisingClassroomId = userRes.data.advisingClasses[0].id;
+      const advisingClassroomId = classrooms[0].id;
       setClassroomId(advisingClassroomId);
-      setClassName(userRes.data.advisingClasses[0].name);
+      setClassName(classrooms[0].name);
 
       // 2. ดึงรายชื่อนักเรียนในห้องนั้น
       const stuRes = await api.get(`/students?classroomId=${advisingClassroomId}`);
@@ -206,6 +212,20 @@ export default function AttendancePage() {
     };
 
     try {
+      // A term may have changed while this page was open. Reload the roster
+      // before allowing another write rather than submitting the old classroom.
+      const latestUser = await api.get<CurrentUser>('/users/me');
+      if (!currentAdvisingClasses(latestUser.data.advisingClasses)
+        .some(classroom => classroom.id === classroomId)) {
+        toast.error('ภาคเรียนหรือห้องที่ปรึกษาเปลี่ยนแล้ว กรุณาตรวจสอบรายชื่อใหม่ก่อนบันทึก', { id: toastId });
+        setAttendanceType(null);
+        setIsEditing(false);
+        setOriginalRecords({});
+        setAttendanceRecordIds({});
+        setIsTypeModalOpen(true);
+        await fetchStudents();
+        return;
+      }
       if (isEditing) {
         const changedRecords = Object.entries(records).filter(
           ([studentId, status]) =>
