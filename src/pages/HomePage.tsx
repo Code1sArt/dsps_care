@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-    User, ClipboardList, ShieldCheck, History,
+    Camera, User, ClipboardList, ShieldCheck, History,
     Users, BarChart3, BellRing,
     CheckCircle, XCircle, Medal, Trophy
 } from 'lucide-react';
@@ -64,6 +64,9 @@ export default function HomePage() {
 
     // กำหนดเมนูลัดตาม Role
     const quickMenus = [
+        ...(['TEACHER', 'AFFAIRS', 'STUDENT'].includes(user?.role ?? '')
+            ? [{ label: user?.role === 'STUDENT' ? 'งานช่างภาพของฉัน' : 'จองช่างภาพ', icon: Camera, path: '/photography', color: 'bg-accent-soft text-primary', available: true }]
+            : []),
         { label: 'โปรไฟล์', icon: User, path: '/profile', color: 'bg-accent-soft text-primary', available: true },
         { label: 'คะแนนพฤติกรรม', icon: ShieldCheck, path: '/behavior', color: 'bg-primary/10 text-primary', available: true },
         { label: 'ประวัติเช็คชื่อ', icon: History, path: '/history', color: 'bg-primary/10 text-primary', available: true },
@@ -189,7 +192,7 @@ export default function HomePage() {
                 <div className="space-y-3 lg:col-span-5">
                     <h3 className="font-bold text-gray-800 px-1 text-sm">เมนูลัด</h3>
                     <div className="grid grid-cols-4 gap-4 lg:gap-5 bg-white p-4 lg:p-6 rounded-3xl shadow-sm border border-gray-100">
-                        {(user?.role === 'TEACHER' ? [...teacherMenus, ...quickMenus] : quickMenus).slice(0, 8).map((menu) => (
+                        {(user?.role === 'TEACHER' ? [...teacherMenus, ...quickMenus] : quickMenus).map((menu) => (
                             <button
                                 key={menu.path}
                                 type="button"

@@ -1,3 +1,4 @@
+import PhotographyPage from './pages/PhotographyPage';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import liff from '@line/liff';
@@ -155,6 +156,7 @@ export default function App() {
       <Routes>
         <Route element={<MobileLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/photography" element={<PhotographyPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 
           {/* เพิ่ม Route ใหม่ตรงนี้ */}
