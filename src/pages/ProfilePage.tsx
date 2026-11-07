@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Dialog, Transition } from '@headlessui/react';
 import { api } from '../lib/api';
+import ParentChildrenManager from '../components/ParentChildrenManager';
 
 export default function ProfilePage() {
     const navigate = useNavigate();
@@ -127,6 +128,8 @@ export default function ProfilePage() {
 
             {/* Actions & Forms */}
             <div className="px-6 space-y-4 lg:max-w-4xl lg:mx-auto lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0">
+
+                {userData?.role === 'PARENT' && <ParentChildrenManager />}
 
                 {/* Card: ข้อมูลส่วนตัว */}
                 <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm border border-gray-100 lg:col-span-3">

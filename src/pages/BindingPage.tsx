@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import liff from '@line/liff';
 import {
     User, Lock, Eye, EyeOff, LogIn,
@@ -7,6 +7,9 @@ import {
 import { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import { api } from '../lib/api';
+import ParentStudentPicker from '../components/ParentStudentPicker';
+import { studentLinks } from '../lib/parentStudentLinks';
+import type { SelectedParentStudent } from '../lib/parentStudentLinks';
 
 interface BindingPageProps {
     lineUserId: string;
@@ -32,8 +35,8 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
     });
     const [showRegPassword, setShowRegPassword] = useState(false);
 
-    const [studentCitizenId, setStudentCitizenId] = useState('');
-    const [invitationCode, setInvitationCode] = useState('');
+    const [selectedStudents, setSelectedStudents] = useState<SelectedParentStudent[]>([]);
+    const registrationInFlight = useRef(false);
 
     // ==========================================
     // ฟังก์ชัน: ยืนยันการผูกบัญชี (เข้าสู่ระบบ)
@@ -64,17 +67,18 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
     // ==========================================
     const handleRegisterParent = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!studentCitizenId.trim() || !invitationCode.trim()) return toast.error('กรุณากรอกรหัสนักเรียนและรหัสเชื่อมโยงจากโรงเรียน');
+        if (registrationInFlight.current) return;
+        if (!selectedStudents.length) return toast.error('กรุณาเลือกนักเรียนในความดูแลอย่างน้อย 1 คน');
         if (regForm.citizenId.length !== 13) return toast.error('รหัสประชาชนต้องมี 13 หลัก');
 
+        registrationInFlight.current = true;
         setLoading(true);
         const toastId = toast.loading('กำลังลงทะเบียน...');
 
         try {
             await api.post('/parents/register', {
                 ...regForm,
-                studentCitizenId: studentCitizenId.trim(),
-                invitationCode: invitationCode.trim(),
+                students: studentLinks(selectedStudents),
                 accessToken: liff.getAccessToken(),
                 lineUserId: lineUserId // ส่ง LINE ID ไปผูกตอนลงทะเบียนเลย
             });
@@ -83,8 +87,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
 
             // ล้างค่าและสลับกลับไปหน้า Login
             setRegForm({ citizenId: '', firstName: '', lastName: '', password: '' });
-            setStudentCitizenId('');
-            setInvitationCode('');
+            setSelectedStudents([]);
             setIsRegisterMode(false);
 
             // เติมรหัสประชาชนให้ในช่อง Login เพื่อความสะดวก
@@ -94,6 +97,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
             const message = error instanceof AxiosError ? error.response?.data?.message : null;
             toast.error(message || 'เกิดข้อผิดพลาดในการลงทะเบียน', { id: toastId });
         } finally {
+            registrationInFlight.current = false;
             setLoading(false);
         }
     };
@@ -151,7 +155,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
                 {!isRegisterMode ? (
                     <form onSubmit={handleBindAccount} className="space-y-4">
                         <div className="space-y-1">
-                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสประจำตัว (13 หลัก)</label>
+                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสประจำตัว</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User size={16} className="text-gray-400" /></div>
                                 <input required type="text" inputMode="numeric" autoComplete="username" maxLength={13} className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none transition-colors focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10" placeholder="กรอกรหัสประจำตัว" value={citizenId} onChange={(e) => setCitizenId(e.target.value)} />
@@ -205,14 +209,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสนักเรียนในความดูแล</label>
-                            <input required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl" value={studentCitizenId} onChange={e => setStudentCitizenId(e.target.value)} />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-gray-700 ml-1">รหัสเชื่อมโยงที่ได้รับจากโรงเรียน</label>
-                            <input required autoComplete="off" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl" value={invitationCode} onChange={e => setInvitationCode(e.target.value)} />
-                        </div>
+                        <ParentStudentPicker value={selectedStudents} onChange={setSelectedStudents} disabled={loading} />
 
                         <div className="space-y-1 relative z-0">
                             <label className="text-xs font-bold text-gray-700 ml-1">ตั้งรหัสผ่านสำหรับเข้าสู่ระบบ</label>
