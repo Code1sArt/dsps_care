@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
-import { api } from '../lib/api';
+import { publicApi } from '../lib/api';
 import ParentStudentPicker from '../components/ParentStudentPicker';
 import { studentLinks } from '../lib/parentStudentLinks';
 import type { SelectedParentStudent } from '../lib/parentStudentLinks';
@@ -49,7 +49,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
         const toastId = toast.loading('กำลังตรวจสอบข้อมูล...');
 
         try {
-            const res = await api.post('/auth/bind-line', {
+            const res = await publicApi.post('/auth/bind-line', {
                 citizenId, password, lineUserId, accessToken: liff.getAccessToken()
             });
             toast.success('เชื่อมต่อบัญชีสำเร็จ!', { id: toastId });
@@ -76,7 +76,7 @@ export default function BindingPage({ lineUserId, onBindSuccess }: BindingPagePr
         const toastId = toast.loading('กำลังลงทะเบียน...');
 
         try {
-            await api.post('/parents/register', {
+            await publicApi.post('/parents/register', {
                 ...regForm,
                 students: studentLinks(selectedStudents),
                 accessToken: liff.getAccessToken(),

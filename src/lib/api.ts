@@ -7,9 +7,14 @@ if (!apiUrl) {
   throw new Error('Missing VITE_API_URL environment variable');
 }
 
-export const api = axios.create({
+const apiConfig = {
   baseURL: apiUrl.replace(/\/+$/, ''),
-});
+};
+
+// Signup and login must not inherit a previous account's expired school JWT.
+// LINE credentials, when required, are verified separately from the request body.
+export const publicApi = axios.create(apiConfig);
+export const api = axios.create(apiConfig);
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');

@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Eye, EyeOff, FlaskConical, Lock, LogIn, User } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { api } from '../lib/api';
+import { publicApi } from '../lib/api';
 
 interface LoginUser {
   id: string;
@@ -25,12 +26,13 @@ export default function DevLoginPage({ onLoginSuccess }: DevLoginPageProps) {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { citizenId, password });
+      const response = await publicApi.post('/auth/login', { citizenId, password });
       onLoginSuccess(response.data.access_token, response.data.user);
       toast.success('เข้าสู่ระบบสำหรับทดสอบสำเร็จ');
-    } catch (error: any) {
-      const message = error.response?.data?.message
-        || (error.code === 'ERR_NETWORK'
+    } catch (error: unknown) {
+      const apiError = isAxiosError<{ message?: string }>(error) ? error : null;
+      const message = apiError?.response?.data?.message
+        || (apiError?.code === 'ERR_NETWORK'
           ? 'เชื่อมต่อ API ที่ localhost:3000 ไม่ได้ กรุณาเปิด behavior-service'
           : 'เข้าสู่ระบบไม่สำเร็จ');
       toast.error(message);

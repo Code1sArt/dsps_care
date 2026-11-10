@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { api } from '../lib/api';
+import { publicApi } from '../lib/api';
 import type { SelectedParentStudent } from '../lib/parentStudentLinks';
 interface ResolvedRoom {
     classroom: { id: number; name: string };
@@ -29,7 +29,7 @@ export default function ParentStudentPicker({ value, onChange, disabled = false 
         request.current = controller;
         setLoading(true); setError(''); setRoom(null);
         try {
-            const response = await api.post<ResolvedRoom>('/parents/classroom-invitations/resolve', { invitationCode }, { signal: controller.signal });
+            const response = await publicApi.post<ResolvedRoom>('/parents/classroom-invitations/resolve', { invitationCode }, { signal: controller.signal });
             if (controller.signal.aborted) return;
             setRoom(response.data); setResolvedCode(invitationCode);
             onChange(value.map(student => student.classroomId === response.data.classroom.id ? { ...student, invitationCode } : student));
