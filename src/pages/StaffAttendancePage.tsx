@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import {
   BriefcaseBusiness,
@@ -200,13 +200,13 @@ function NoticeCard({
 }
 
 export default function StaffAttendancePage() {
-  const role = useMemo<UserRole>(() => {
+  const [role, setRole] = useState<UserRole>(() => {
     try {
       return (JSON.parse(localStorage.getItem('user_data') ?? '{}') as { role?: UserRole }).role ?? 'TEACHER';
     } catch {
       return 'TEACHER';
     }
-  }, []);
+  });
   const isTeacher = role === 'TEACHER';
   const [date, setDate] = useState(bangkokDate);
   const [startDate, setStartDate] = useState(bangkokDate);
@@ -216,6 +216,7 @@ export default function StaffAttendancePage() {
   const [reason, setReason] = useState('');
   const [records, setRecords] = useState<Notice[]>([]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [pendingRecords, setPendingRecords] = useState<Notice[]>([]);
   const [statistics, setStatistics] = useState<MyStatistics | null>(null);
   const [statisticsScope, setStatisticsScope] = useState<'FISCAL_YEAR' | 'ALL'>('FISCAL_YEAR');
   const [fiscalYear, setFiscalYear] = useState(currentFiscalYear);
@@ -226,7 +227,11 @@ export default function StaffAttendancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      if (isTeacher) {
+      const profileResponse = await api.get<{ role: UserRole }>('/users/me');
+      const currentRole = profileResponse.data.role;
+      setRole(currentRole);
+
+      if (currentRole === 'TEACHER') {
         const [historyResponse, statisticsResponse] = await Promise.all([
           api.get<Notice[]>('/staff-attendance/mine'),
           api.get<MyStatistics>('/staff-attendance/mine/statistics', {
@@ -239,18 +244,23 @@ export default function StaffAttendancePage() {
         setRecords(historyResponse.data);
         setStatistics(statisticsResponse.data);
       } else {
-        const [summaryResponse, recordsResponse] = await Promise.all([
+        const [summaryResponse, recordsResponse, pendingResponse] = await Promise.all([
           api.get<DailySummary>('/staff-attendance/summary/daily', { params: { date } }),
           api.get<ManagementResponse>('/staff-attendance', { params: { from: date, to: date } }),
+          api.get<ManagementResponse>('/staff-attendance', { params: { status: 'PENDING' } }),
         ]);
-        setSummary({ ...summaryResponse.data, records: recordsResponse.data.records });
+        setSummary({
+          ...summaryResponse.data,
+          records: recordsResponse.data.records.filter((record) => record.status !== 'PENDING'),
+        });
+        setPendingRecords(pendingResponse.data.records);
       }
     } catch (error) {
       toast.error(apiMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [date, fiscalYear, isTeacher, statisticsScope]);
+  }, [date, fiscalYear, statisticsScope]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
@@ -434,8 +444,42 @@ export default function StaffAttendancePage() {
           </section>
         )}
 
+        {!isTeacher && (
+          <section className="rounded-3xl border border-amber-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-gray-800">รายการรออนุมัติทั้งหมด</h2>
+                <p className="mt-1 text-[11px] text-gray-500">แสดงทุกวันที่ที่ยังไม่ได้รับการพิจารณา</p>
+              </div>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                {pendingRecords.length} รายการ
+              </span>
+            </div>
+            {loading ? (
+              <div className="py-8 text-center text-sm text-gray-400">กำลังโหลดรายการรออนุมัติ…</div>
+            ) : pendingRecords.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-400">
+                ไม่มีรายการรออนุมัติ
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingRecords.map((notice) => (
+                  <NoticeCard
+                    key={notice.id}
+                    notice={notice}
+                    showTeacher
+                    canReview={role === 'EXECUTIVE'}
+                    reviewing={reviewingId === notice.id}
+                    onReview={review}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-sm font-black text-gray-800">{isTeacher ? 'ประวัติของฉัน' : `รายการวันที่ ${thaiDate(date)}`}</h2>
+          <h2 className="text-sm font-black text-gray-800">{isTeacher ? 'ประวัติของฉัน' : `รายการประจำวันที่ ${thaiDate(date)}`}</h2>
           <button type="button" onClick={() => void load()} className="rounded-xl p-2 text-primary" aria-label="โหลดข้อมูลใหม่"><RefreshCw size={17} className={loading ? 'animate-spin' : ''} /></button>
         </div>
 
