@@ -1,4 +1,5 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useCallback } from 'react';
+import { isAxiosError } from 'axios';
 import { useNavigate } from 'react-router-dom';
 import liff from '@line/liff';
 import toast from 'react-hot-toast';
@@ -9,11 +10,18 @@ import { Dialog, Transition } from '@headlessui/react';
 import { api } from '../lib/api';
 import ParentChildrenManager from '../components/ParentChildrenManager';
 
+interface ProfileUser {
+    citizenId: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+}
+
 export default function ProfilePage() {
     const navigate = useNavigate();
 
     // States สำหรับข้อมูล
-    const [userData, setUserData] = useState<any>(null);
+    const [userData, setUserData] = useState<ProfileUser | null>(null);
     const [lineAvatar, setLineAvatar] = useState<string>('');
     const [loading, setLoading] = useState(true);
 
@@ -25,11 +33,7 @@ export default function ProfilePage() {
         confirmPassword: ''
     });
 
-    useEffect(() => {
-        fetchProfileData();
-    }, []);
-
-    const fetchProfileData = async () => {
+    const fetchProfileData = useCallback(async () => {
         try {
             setLoading(true);
             // 1. ดึงข้อมูลรูปภาพจาก LINE LIFF
@@ -39,14 +43,19 @@ export default function ProfilePage() {
             }
 
             // 2. ดึงข้อมูลส่วนตัวจาก Backend (/users/me)
-            const res = await api.get('/users/me');
+            const res = await api.get<ProfileUser>('/users/me');
             setUserData(res.data);
-        } catch (error) {
+        } catch {
             toast.error('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        const timeout = window.setTimeout(() => void fetchProfileData(), 0);
+        return () => window.clearTimeout(timeout);
+    }, [fetchProfileData]);
 
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,8 +76,10 @@ export default function ProfilePage() {
             toast.success('เปลี่ยนรหัสผ่านสำเร็จ', { id: toastId });
             setIsPasswordModalOpen(false);
             setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (error: any) {
-            const msg = error.response?.data?.message || 'รหัสผ่านเดิมไม่ถูกต้อง';
+        } catch (error: unknown) {
+            const msg = isAxiosError<{ message?: string }>(error)
+                ? error.response?.data?.message || 'รหัสผ่านเดิมไม่ถูกต้อง'
+                : 'รหัสผ่านเดิมไม่ถูกต้อง';
             toast.error(msg, { id: toastId });
         }
     };
@@ -84,6 +95,8 @@ export default function ProfilePage() {
     const getRoleLabel = (role: string) => {
         const roles: Record<string, string> = {
             ADMIN: 'ผู้ดูแลระบบ',
+            EXECUTIVE: 'ผู้บริหาร',
+            AFFAIRS: 'ฝ่ายกิจการ',
             TEACHER: 'คุณครู',
             PARENT: 'ผู้ปกครอง',
             STUDENT: 'นักเรียน'
@@ -122,7 +135,7 @@ export default function ProfilePage() {
                 </h2>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-primary">
                     <Shield size={16} />
-                    <span className="font-semibold text-sm">{getRoleLabel(userData?.role)}</span>
+                    <span className="font-semibold text-sm">{getRoleLabel(userData?.role ?? '')}</span>
                 </div>
             </div>
 

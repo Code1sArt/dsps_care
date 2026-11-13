@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
     Home, User, ClipboardList,
-    ShieldCheck, History
+    ShieldCheck, History, CalendarClock
 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -26,10 +26,11 @@ export default function MobileLayout() {
 
             // เมนูเฉพาะครู / Admin
             { path: '/attendance', icon: ClipboardList, label: 'เช็คชื่อ', roles: ['TEACHER', 'ADMIN'] },
+            { path: '/staff-attendance', icon: CalendarClock, label: 'ลา/เข้าสาย', roles: ['TEACHER', 'ADMIN', 'EXECUTIVE'] },
 
             // เมนูใหม่ (นักเรียน ผู้ปกครอง และครู เห็นเหมือนกันหมด)
-            { path: '/behavior', icon: ShieldCheck, label: 'พฤติกรรม', roles: ['ALL'] },
-            { path: '/history', icon: History, label: 'ประวัติ', roles: ['ALL'] },
+            { path: '/behavior', icon: ShieldCheck, label: 'พฤติกรรม', roles: ['STUDENT', 'PARENT', 'TEACHER', 'AFFAIRS', 'ADMIN'] },
+            { path: '/history', icon: History, label: 'ประวัติ', roles: ['STUDENT', 'PARENT', 'TEACHER', 'AFFAIRS', 'ADMIN'] },
 
             { path: '/profile', icon: User, label: 'โปรไฟล์', roles: ['ALL'] },
         ];

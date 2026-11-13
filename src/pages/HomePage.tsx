@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     Camera, User, ClipboardList, ShieldCheck, History,
-    Users, BarChart3, BellRing,
+    Users, BarChart3, BellRing, CalendarClock,
     CheckCircle, XCircle, Medal, Trophy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,7 +22,7 @@ interface ClassroomSummary {
 }
 
 interface HomeUser {
-    role: 'TEACHER' | 'STUDENT' | 'PARENT' | 'AFFAIRS';
+    role: 'TEACHER' | 'STUDENT' | 'PARENT' | 'AFFAIRS' | 'ADMIN' | 'EXECUTIVE';
     firstName: string;
     advisingClasses?: Array<{ id: number; name: string }>;
 }
@@ -72,6 +72,9 @@ export default function HomePage() {
         { label: 'ประวัติเช็คชื่อ', icon: History, path: '/history', color: 'bg-primary/10 text-primary', available: true },
         ...((user?.role === 'TEACHER' || user?.role === 'AFFAIRS')
             ? [{ label: 'เพิ่ม/ลบ คะแนนพฤติกรรม', icon: ClipboardList, path: '/behavior-manage', color: 'bg-accent-soft text-primary', available: true }]
+            : []),
+        ...(['TEACHER', 'ADMIN', 'EXECUTIVE'].includes(user?.role ?? '')
+            ? [{ label: user?.role === 'TEACHER' ? 'แจ้งลา/เข้าสาย' : 'สรุปการลา/เข้าสาย', icon: CalendarClock, path: '/staff-attendance', color: 'bg-primary/10 text-primary', available: true }]
             : []),
     ];
 
