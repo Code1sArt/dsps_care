@@ -8,6 +8,7 @@ import {
   HeartPulse,
   RefreshCw,
   Send,
+  Share2,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -129,6 +130,48 @@ const apiMessage = (error: unknown) => {
   if (!isAxiosError<{ message?: string | string[] }>(error)) return 'ไม่สามารถดำเนินการได้ กรุณาลองใหม่';
   const message = error.response?.data?.message;
   return Array.isArray(message) ? message.join('\n') : message || 'ไม่สามารถดำเนินการได้ กรุณาลองใหม่';
+};
+
+const dailySummaryText = (summary: DailySummary) => {
+  const approvedRecords = summary.records.filter((notice) => notice.status === 'APPROVED');
+  const lines = [`วันที่ ${thaiDate(summary.date)}`];
+  const sections: Array<[NoticeType, string]> = [
+    ['SICK_LEAVE', 'ลาป่วย'],
+    ['PERSONAL_LEAVE', 'ลากิจ'],
+    ['LATE_ARRIVAL', 'ขออนุญาตเข้าสาย'],
+  ];
+
+  sections.forEach(([type, label]) => {
+    const notices = approvedRecords.filter((notice) => notice.type === type);
+    lines.push(`${label} ${notices.length} คน`);
+    notices.forEach((notice, index) => {
+      const name = notice.teacher
+        ? `${notice.teacher.firstName} ${notice.teacher.lastName}`.trim()
+        : 'ไม่ระบุชื่อ';
+      lines.push(`${index + 1}. ${name || 'ไม่ระบุชื่อ'}`);
+    });
+    lines.push('');
+  });
+
+  return lines.join('\n').trimEnd();
+};
+
+const copyText = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    if (!copied) throw new Error('Clipboard is unavailable');
+  }
 };
 
 function NoticeCard({
@@ -310,6 +353,16 @@ export default function StaffAttendancePage() {
     }
   };
 
+  const copyDailySummary = async () => {
+    if (!summary) return;
+    try {
+      await copyText(dailySummaryText(summary));
+      toast.success('คัดลอกสรุปรายวันแล้ว พร้อมนำไปโพสต์ใน LINE');
+    } catch {
+      toast.error('ไม่สามารถคัดลอกข้อความได้ กรุณาลองใหม่');
+    }
+  };
+
   const totalCards = summary
     ? [
         ['รายการทั้งหมด', summary.totals.total, 'bg-primary/10 text-primary'],
@@ -321,10 +374,22 @@ export default function StaffAttendancePage() {
 
   const statisticsCards = statistics
     ? [
-        ['วันลารวม', statistics.totals.leaveDays, 'วัน', 'bg-primary/10 text-primary'],
-        ['ลากิจ', statistics.personalLeave.days, 'วัน', 'bg-amber-50 text-amber-700'],
-        ['ลาป่วย', statistics.sickLeave.days, 'วัน', 'bg-rose-50 text-rose-700'],
-        ['เข้าสาย', statistics.lateArrival.requests, 'ครั้ง', 'bg-blue-50 text-blue-700'],
+        [
+          'การลารวม',
+          `${statistics.personalLeave.requests + statistics.sickLeave.requests} ครั้ง (${statistics.totals.leaveDays} วัน)`,
+          'bg-primary/10 text-primary',
+        ],
+        [
+          'ลากิจ',
+          `${statistics.personalLeave.requests} ครั้ง (${statistics.personalLeave.days} วัน)`,
+          'bg-amber-50 text-amber-700',
+        ],
+        [
+          'ลาป่วย',
+          `${statistics.sickLeave.requests} ครั้ง (${statistics.sickLeave.days} วัน)`,
+          'bg-rose-50 text-rose-700',
+        ],
+        ['เข้าสาย', `${statistics.lateArrival.requests} ครั้ง`, 'bg-blue-50 text-blue-700'],
       ]
     : [];
 
@@ -399,6 +464,14 @@ export default function StaffAttendancePage() {
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              disabled={!summary || loading}
+              onClick={() => void copyDailySummary()}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-3 text-sm font-bold text-primary disabled:opacity-50"
+            >
+              <Share2 size={17} /> คัดลอกสรุปเพื่อแชร์ LINE
+            </button>
           </div>
         )}
 
@@ -426,10 +499,10 @@ export default function StaffAttendancePage() {
               </div>
             )}
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {statisticsCards.map(([label, value, unit, tone]) => (
+              {statisticsCards.map(([label, value, tone]) => (
                 <div key={String(label)} className={`rounded-2xl p-4 ${tone}`}>
                   <p className="text-[11px] font-bold opacity-80">{label}</p>
-                  <p className="mt-1 text-2xl font-black">{value} <span className="text-xs">{unit}</span></p>
+                  <p className="mt-1 text-sm font-black leading-6">{value}</p>
                 </div>
               ))}
             </div>
