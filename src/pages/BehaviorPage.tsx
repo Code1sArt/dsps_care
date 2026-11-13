@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment, useMemo, type SVGProps } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Dialog, Transition } from '@headlessui/react';
 import { api } from '../lib/api';
@@ -61,6 +61,8 @@ interface StudentDetail {
 
 export default function BehaviorPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedStudentId = searchParams.get('studentId');
 
     // States สำหรับข้อมูลทั้งห้อง (มุมมองครู)
     const [userRole, setUserRole] = useState('');
@@ -95,6 +97,19 @@ export default function BehaviorPage() {
                 const userRes = await api.get('/users/me');
                 const role = userRes.data.role;
                 setUserRole(role);
+
+                if (requestedStudentId && (role === 'TEACHER' || role === 'PARENT')) {
+                    const children = sortStudents((userRes.data.children ?? []) as ParentChild[]);
+                    const child = children.find(student => student.id === requestedStudentId);
+                    if (!child) {
+                        toast.error('ไม่พบนักเรียนในความดูแล');
+                        navigate('/children', { replace: true });
+                        return;
+                    }
+                    setParentStudents(children);
+                    await openStudentDetail(child.id);
+                    return;
+                }
 
                 if (role === 'TEACHER') {
                     if (!userRes.data.advisingClasses || userRes.data.advisingClasses.length === 0) {
@@ -136,7 +151,7 @@ export default function BehaviorPage() {
         };
 
         void loadPage();
-    }, []);
+    }, [navigate, requestedStudentId]);
 
     // Helper function สำหรับสีและไอคอนตามสถานะ
     const getStatusConfig = (status: string) => {
@@ -173,6 +188,10 @@ export default function BehaviorPage() {
     }, [parentStudents, searchQuery]);
 
     const closeDetail = () => {
+        if (requestedStudentId) {
+            navigate('/children');
+            return;
+        }
         if (userRole === 'TEACHER' || (userRole === 'PARENT' && parentStudents.length > 1)) {
             setIsDetailOpen(false);
             return;

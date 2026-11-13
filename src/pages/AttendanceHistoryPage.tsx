@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -79,6 +80,9 @@ const formatThaiDate = (record: AttendanceRecord) => {
 };
 
 export default function AttendanceHistoryPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedStudentId = searchParams.get('studentId');
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -97,6 +101,19 @@ export default function AttendanceHistoryPage() {
         const userRes = await api.get<CurrentUser>('/users/me');
         const user = userRes.data;
         setCurrentUser(user);
+
+        if (requestedStudentId && (user.role === 'TEACHER' || user.role === 'PARENT')) {
+          const children = sortStudents(user.children ?? []);
+          const child = children.find(student => student.id === requestedStudentId);
+          if (!child) {
+            toast.error('ไม่พบนักเรียนในความดูแล');
+            navigate('/children', { replace: true });
+            return;
+          }
+          setStudents(children);
+          await openStudentHistory(child);
+          return;
+        }
 
         if (user.role === 'STUDENT') {
           setSelectedStudent({
@@ -139,7 +156,7 @@ export default function AttendanceHistoryPage() {
     };
 
     void loadPage();
-  }, []);
+  }, [navigate, requestedStudentId]);
 
   async function openStudentHistory(student: Student) {
     try {
@@ -199,6 +216,10 @@ export default function AttendanceHistoryPage() {
             {(currentUser?.role === 'TEACHER' || currentUser?.role === 'PARENT') && selectedStudent && (
               <button
                 onClick={() => {
+                  if (requestedStudentId) {
+                    navigate('/children');
+                    return;
+                  }
                   setSelectedStudent(null);
                   setRecords([]);
                 }}

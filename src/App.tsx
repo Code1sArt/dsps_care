@@ -15,6 +15,7 @@ import ClassroomStatsPage from './pages/ClassroomStatsPage';
 import StudentListPage from './pages/StudentListPage';
 import DevLoginPage from './pages/DevLoginPage';
 import StaffAttendancePage from './pages/StaffAttendancePage';
+import GuardianChildrenPage from './pages/GuardianChildrenPage';
 import { publicApi } from './lib/api';
 
 const liffId = import.meta.env.VITE_LIFF_ID;
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/student-list" element={<StudentListPage />} />
           <Route path="/history" element={<AttendanceHistoryPage />} />
           <Route path="/staff-attendance" element={<StaffAttendancePage />} />
+          <Route path="/children" element={<GuardianChildrenPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

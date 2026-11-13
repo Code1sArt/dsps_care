@@ -80,6 +80,7 @@ export default function HomePage() {
 
     // เมนูเพิ่มเติมสำหรับคุณครู
     const teacherMenus = [
+        { label: 'ข้อมูลบุตรหลาน', icon: Users, path: '/children', color: 'bg-primary/10 text-primary', available: true },
         { label: 'เช็คชื่อวันนี้', icon: ClipboardList, path: '/attendance', color: 'bg-accent-soft text-primary', available: true },
         { label: 'รายชื่อนักเรียน', icon: Users, path: '/student-list', color: 'bg-primary/10 text-primary', available: true },
         { label: 'สถิติห้องเรียน', icon: BarChart3, path: '/stats', color: 'bg-accent-soft text-primary', available: true },
