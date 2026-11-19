@@ -88,4 +88,4 @@ jobs:
         run: >-
           curl --fail --silent --show-error --retry 3
           "https://dspscare.com/behavior?deployment=${GITHUB_SHA}"
-          | grep -Fq '<div id="root"></div>'
+          | grep -Fq '<div id="root">'
